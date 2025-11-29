@@ -7,6 +7,17 @@
     <!-- Telegram Web App Script -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Expose to window for game logic
+        window.firebaseApp = { initializeApp, getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, getFirestore, doc, setDoc, getDoc, collection, getDocs, onSnapshot };
+    </script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Space+Grotesk:wght@300;500;700&display=swap');
 
@@ -24,6 +35,9 @@
             color: var(--text-color);
             overflow: hidden;
             touch-action: none;
+            /* Safe area for iPhone home bar and notches */
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
         }
 
         h1, h2, .font-space {
@@ -32,9 +46,9 @@
 
         /* Glassmorphism UI */
         .glass-panel {
-            background: rgba(20, 20, 25, 0.6);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+            background: rgba(20, 20, 25, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.08);
             box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
         }
@@ -107,10 +121,34 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            /* Ensure UI fits in view height minus safe areas handled by body padding */
+            box-sizing: border-box;
         }
 
         .interactive {
             pointer-events: auto;
+        }
+
+        /* Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none; 
+            background: transparent; 
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #a5b4fc;
+            cursor: pointer;
+            margin-top: -6px; 
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.2);
+            border-radius: 2px;
         }
 
         /* Loading Screen */
@@ -160,6 +198,11 @@
             perspective: 500px;
             transform-style: preserve-3d;
         }
+
+        /* Safe area spacing util */
+        .safe-top-padding {
+            padding-top: 20px; /* Base padding */
+        }
     </style>
 </head>
 <body>
@@ -170,7 +213,8 @@
             <div class="loader-ring"></div>
             <div class="loader-star"></div>
         </div>
-        <div class="text-indigo-200 font-space tracking-[0.3em] text-xs font-bold animate-pulse">INITIALIZING UNIVERSE</div>
+        <div class="text-indigo-200 font-space tracking-[0.3em] text-xs font-bold animate-pulse mb-2">INITIALIZING UNIVERSE</div>
+        <div class="text-gray-600 font-mono text-[10px] absolute bottom-8">Version 1.0</div>
     </div>
 
     <!-- Background Galaxy Renderer -->
@@ -179,13 +223,13 @@
     </div>
 
     <!-- UI Overlay -->
-    <div id="ui-layer" class="p-6 safe-area">
+    <div id="ui-layer" class="p-4 w-full h-full">
         
         <!-- Header Stats -->
-        <div class="glass-panel rounded-2xl p-4 w-full max-w-md mx-auto interactive flex flex-col gap-2 animate-fade-in relative">
+        <div class="glass-panel rounded-2xl p-4 w-full max-w-md mx-auto interactive flex flex-col gap-2 animate-fade-in relative safe-top-padding">
             <div class="flex justify-between items-center">
                 <div>
-                    <h2 class="text-xs text-gray-400 uppercase tracking-widest font-semibold">Total Stardust</h2>
+                    <h2 class="text-xs text-gray-400 uppercase tracking-widest font-semibold" id="universe-name-display">Universe</h2>
                     <div class="text-3xl font-space font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-200" id="stardust-display">0</div>
                 </div>
                 <div class="text-right">
@@ -198,6 +242,11 @@
                 <span>Production: <span id="production-rate" class="text-gray-300">0.0</span> / sec</span>
                 <span id="civ-status" class="text-gray-600 italic">No Life Detected</span>
             </div>
+
+            <!-- Leaderboard Button -->
+            <button onclick="game.toggleLeaderboard()" class="absolute -right-12 top-2 p-3 rounded-full glass-panel hover:bg-white/10 transition text-yellow-200/80">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+            </button>
         </div>
 
         <!-- Center Notification Area -->
@@ -260,6 +309,38 @@
         </div>
     </div>
     
+    <!-- Naming Modal -->
+    <div id="naming-modal" class="hidden absolute inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-6 interactive">
+        <div class="glass-panel w-full max-w-sm rounded-2xl p-8 text-center">
+            <h2 class="text-2xl font-space font-bold text-white mb-2">Welcome Creator</h2>
+            <p class="text-gray-400 text-sm mb-6">Before you begin, you must name this new universe.</p>
+            
+            <input type="text" id="universe-name-input" placeholder="e.g. Andromeda II" class="w-full bg-white/5 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-500 mb-4 focus:outline-none focus:border-indigo-500 transition-colors text-center font-space">
+            
+            <button onclick="game.setUniverseName()" class="w-full btn-primary py-3 rounded-xl font-bold">
+                Begin Simulation
+            </button>
+        </div>
+    </div>
+
+    <!-- Leaderboard Modal -->
+    <div id="leaderboard-modal" class="hidden absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 interactive">
+        <div class="glass-panel w-full max-w-sm rounded-2xl p-6 relative max-h-[80vh] flex flex-col">
+            <button onclick="game.toggleLeaderboard()" class="absolute top-4 right-4 text-gray-400 hover:text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+            
+            <h2 class="text-xl font-space font-bold text-yellow-300 mb-6 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+                Multiverse Ranking
+            </h2>
+            
+            <div id="leaderboard-list" class="space-y-2 overflow-y-auto flex-1 pr-2">
+                <div class="text-center text-gray-500 py-4">Connecting to Multiverse...</div>
+            </div>
+        </div>
+    </div>
+
     <!-- Shop Modal -->
     <div id="shop-modal" class="hidden absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 interactive">
         <div class="glass-panel w-full max-w-sm rounded-2xl p-6 relative max-h-[90vh] overflow-y-auto">
@@ -378,24 +459,32 @@
             window.Telegram.WebApp.expand(); // Fullscreen
         }
 
+        // --- Firebase Init ---
+        // Provided by environment
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'tiny-verse-default';
+        
+        let auth, db;
+        let currentUser = null;
+
         // --- Game Configuration ---
         const CONFIG = {
             baseStarCost: 10,
             costMultiplier: 1.15, 
             maxStarCost: 150000, 
             baseProductionPerStar: 1, 
-            lifeMultiplier: 50, // x50 Multiplier for People
+            lifeMultiplier: 50, // x50 Multiplier
             civCost: 5000000, 
-            landCost: 1000000, // 1M Cost for Land
+            landCost: 1000000, 
             
             // Core Upgrades
             baseCoreCost: 20000,
             coreCostMult: 2.5,
-            baseCoreBonus: 5000, // +5000 flat per level (doubling logic handled in code)
+            baseCoreBonus: 5000,
 
             // Shop Costs
             costAuto: 10000,
-            costBoost: 500000, // Black Hole Trigger
+            costBoost: 500000, // Black Hole
             costWarp: 50000,
             
             // Cosmetic Costs
@@ -411,8 +500,9 @@
             startTime: Date.now(),
             lifeFound: false,
             landOwned: false,
-            coreLevel: 0, // Used for size and bonus
-            hasBlackHole: false, // Visual override
+            coreLevel: 0,
+            hasBlackHole: false,
+            universeName: "Unknown",
             
             // Upgrades
             hasAutoCollect: false,
@@ -513,7 +603,7 @@
         class VisualStar {
             constructor(isCenter = false, type = 'star') {
                 this.isCenter = isCenter;
-                this.type = type; // 'star', 'planet'
+                this.type = type; 
                 this.reset();
             }
 
@@ -566,7 +656,6 @@
             }
 
             updateCoreVisuals() {
-                // Size increases with Core Level: 4 base + 1 per level
                 this.size = 4 + (STATE.coreLevel * 0.8);
                 this.color = STATE.coreColor;
             }
@@ -581,38 +670,32 @@
                 const x = this.orbitRadius * Math.cos(this.orbitAngle);
                 const y = this.orbitRadius * Math.sin(this.orbitAngle);
                 
-                // --- BLACK HOLE RENDERER ---
                 if (this.isCenter && STATE.hasBlackHole) {
                     const bhSize = this.size * 2;
-                    
-                    // Accretion Disk (Animated)
                     const gradient = ctx.createRadialGradient(x, y, bhSize * 0.8, x, y, bhSize * 2.5);
                     gradient.addColorStop(0, '#000000');
-                    gradient.addColorStop(0.2, '#4c1d95'); // Purple
-                    gradient.addColorStop(0.5, '#c026d3'); // Magenta
+                    gradient.addColorStop(0.2, '#4c1d95'); 
+                    gradient.addColorStop(0.5, '#c026d3'); 
                     gradient.addColorStop(1, 'transparent');
                     
                     ctx.beginPath();
                     ctx.arc(x, y, bhSize * 2.5, 0, Math.PI * 2);
                     ctx.fillStyle = gradient;
-                    // Spin wobble
                     ctx.save();
                     ctx.translate(x, y);
                     ctx.scale(1, 0.8 + Math.sin(time) * 0.1); 
                     ctx.fill();
                     ctx.restore();
 
-                    // Event Horizon (Black Void)
                     ctx.beginPath();
                     ctx.arc(x, y, bhSize, 0, Math.PI * 2);
                     ctx.fillStyle = '#000000';
                     ctx.shadowBlur = 20;
-                    ctx.shadowColor = '#ffffff'; // White Ring
+                    ctx.shadowColor = '#ffffff';
                     ctx.fill();
                     return;
                 }
 
-                // --- NORMAL STAR RENDERER ---
                 const pulse = Math.sin(time * this.pulseSpeed + this.pulseOffset);
                 let currentSize = this.isCenter 
                     ? this.size + (pulse * 1) 
@@ -673,20 +756,70 @@
 
         // --- Game Logic ---
         const game = {
-            init: () => {
-                game.load();
+            init: async () => {
+                // Init Firebase
+                if (window.firebaseApp) {
+                    try {
+                        const app = window.firebaseApp.initializeApp(firebaseConfig);
+                        auth = window.firebaseApp.getAuth(app);
+                        db = window.firebaseApp.getFirestore(app);
+                        
+                        const initAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                        if (initAuthToken) {
+                            await window.firebaseApp.signInWithCustomToken(auth, initAuthToken);
+                        } else {
+                            await window.firebaseApp.signInAnonymously(auth);
+                        }
+                        
+                        window.firebaseApp.onAuthStateChanged(auth, async (user) => {
+                            if (user) {
+                                currentUser = user;
+                                await game.load(); // Load from cloud
+                                game.checkNaming();
+                            }
+                        });
+                    } catch (e) {
+                        console.error("Firebase init failed, fallback to local:", e);
+                        game.load();
+                        game.checkNaming();
+                    }
+                } else {
+                    game.load();
+                    game.checkNaming();
+                }
+
                 initVisuals();
                 renderLoop();
                 setInterval(game.tick, 100);
-                setInterval(game.save, 30000);
+                setInterval(game.save, 30000); // Sync every 30s
                 game.updateUI();
                 game.updateShopUI();
                 
+                // Extended Loading Screen
                 setTimeout(() => {
                     const loader = document.getElementById('loading-screen');
                     loader.style.opacity = '0';
                     setTimeout(() => loader.remove(), 800);
-                }, 1500);
+                }, 4000); // 4 seconds load time
+            },
+
+            checkNaming: () => {
+                if (STATE.universeName === "Unknown") {
+                    document.getElementById('naming-modal').classList.remove('hidden');
+                } else {
+                    document.getElementById('universe-name-display').innerText = STATE.universeName;
+                }
+            },
+
+            setUniverseName: () => {
+                const input = document.getElementById('universe-name-input');
+                const name = input.value.trim();
+                if (name.length > 0) {
+                    STATE.universeName = name;
+                    document.getElementById('naming-modal').classList.add('hidden');
+                    document.getElementById('universe-name-display').innerText = name;
+                    game.save();
+                }
             },
 
             tick: () => {
@@ -708,17 +841,13 @@
 
             calculateProduction: () => {
                 let production = STATE.stars * CONFIG.baseProductionPerStar;
-                
-                // Core Bonus: 5000 * 2^Level (simplified geometric doubling)
                 if (STATE.coreLevel > 0) {
                     const coreBonus = CONFIG.baseCoreBonus * Math.pow(2, STATE.coreLevel - 1);
                     production += coreBonus;
                 }
-
                 if (STATE.lifeFound) {
-                    production *= CONFIG.lifeMultiplier; // x50
+                    production *= CONFIG.lifeMultiplier;
                 }
-                
                 production *= (STATE.permanentMultiplier || 1);
                 return production;
             },
@@ -728,7 +857,6 @@
                 const amount = Math.floor(STATE.unclaimed); 
                 STATE.stardust += STATE.unclaimed; 
                 STATE.unclaimed = 0;
-                
                 game.spawnFloatingText(e.clientX, e.clientY, `+${formatNumber(amount)}`);
                 playSound('collect');
                 game.save();
@@ -751,12 +879,11 @@
             },
 
             searchCiv: () => {
-                // Now requires Land
                 if (!STATE.landOwned) {
                     game.showToast("Need Planet Land First!");
                     return;
                 }
-                if (STATE.lifeFound) return; // One time purchase
+                if (STATE.lifeFound) return; 
 
                 if(STATE.stardust >= CONFIG.civCost) {
                     STATE.stardust -= CONFIG.civCost;
@@ -771,7 +898,6 @@
 
             handleCivClick: () => {
                 if (STATE.lifeFound) {
-                    // Open New Window (Surface View)
                     game.toggleSurface();
                 } else {
                     game.searchCiv();
@@ -785,6 +911,56 @@
             toggleShop: () => {
                 document.getElementById('shop-modal').classList.toggle('hidden');
                 game.updateShopUI();
+            },
+
+            toggleLeaderboard: async () => {
+                const modal = document.getElementById('leaderboard-modal');
+                modal.classList.toggle('hidden');
+                
+                if (!modal.classList.contains('hidden') && db) {
+                    const listEl = document.getElementById('leaderboard-list');
+                    listEl.innerHTML = '<div class="text-center text-gray-500 py-4">Fetching Data...</div>';
+                    
+                    try {
+                        // "Rule 2: No Complex Queries" - We fetch all and sort in JS
+                        // Use public collection path
+                        const lbRef = window.firebaseApp.collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+                        const snapshot = await window.firebaseApp.getDocs(lbRef);
+                        
+                        let players = [];
+                        snapshot.forEach(doc => {
+                            players.push(doc.data());
+                        });
+                        
+                        // Sort by stars descending
+                        players.sort((a, b) => b.stars - a.stars);
+                        
+                        // Render Top 20
+                        let html = '';
+                        players.slice(0, 20).forEach((p, index) => {
+                            const isMe = currentUser && p.userId === currentUser.uid;
+                            html += `
+                                <div class="flex justify-between items-center p-3 rounded-lg ${isMe ? 'bg-indigo-900/40 border border-indigo-500/30' : 'bg-white/5 border border-white/5'}">
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-gray-500 font-mono w-6 text-sm">#${index + 1}</span>
+                                        <div>
+                                            <div class="text-sm font-bold text-white">${p.name || 'Anonymous'}</div>
+                                            <div class="text-xs text-gray-400">${formatNumber(p.stars)} Stars</div>
+                                        </div>
+                                    </div>
+                                    <div class="text-xs font-mono text-indigo-300">${formatNumber(p.stardust)} Dust</div>
+                                </div>
+                            `;
+                        });
+                        
+                        if (players.length === 0) html = '<div class="text-center text-gray-500 py-4">No data yet.</div>';
+                        listEl.innerHTML = html;
+                        
+                    } catch (e) {
+                        console.error("LB Error", e);
+                        listEl.innerHTML = '<div class="text-center text-red-400 py-4">Failed to load rankings</div>';
+                    }
+                }
             },
             
             buyUpgrade: (type) => {
@@ -804,7 +980,7 @@
                     if (STATE.stardust >= cost) {
                         STATE.stardust -= cost;
                         STATE.permanentMultiplier = (STATE.permanentMultiplier || 1) * 2;
-                        STATE.hasBlackHole = true; // Trigger Black Hole Visual
+                        STATE.hasBlackHole = true; 
                         success = true;
                         game.showToast("CORE COLLAPSED! (x2)");
                     }
@@ -817,13 +993,11 @@
                         game.showToast("Planet Terraform Complete");
                     }
                 } else if (type === 'core') {
-                    // Cost scales: 20000 * 2.5^Level
                     cost = Math.floor(CONFIG.baseCoreCost * Math.pow(CONFIG.coreCostMult, STATE.coreLevel));
                     if (STATE.stardust >= cost) {
                         STATE.stardust -= cost;
                         STATE.coreLevel++;
                         success = true;
-                        // Next bonus calc
                         const nextBonus = CONFIG.baseCoreBonus * Math.pow(2, STATE.coreLevel);
                         game.showToast(`Core Expanded! (+${formatNumber(nextBonus/2)}/s)`);
                     }
@@ -873,9 +1047,7 @@
                 // Core
                 const coreCost = Math.floor(CONFIG.baseCoreCost * Math.pow(CONFIG.coreCostMult, STATE.coreLevel));
                 document.getElementById('core-cost-display').innerText = formatNumber(coreCost) + " Dust";
-                const nextBonus = CONFIG.baseCoreBonus * Math.pow(2, STATE.coreLevel); // Current level gives this, next gives double?
-                // Actually logic is: Level 0->1 adds 5000. Level 1->2 adds 10000.
-                // Displaying what the NEXT upgrade adds.
+                const nextBonus = CONFIG.baseCoreBonus * Math.pow(2, STATE.coreLevel); 
                 document.getElementById('core-next-bonus').innerText = formatNumber(nextBonus);
                 
                 const btnCore = document.getElementById('btn-buy-core');
@@ -954,36 +1126,67 @@
                 }
             },
 
-            save: () => localStorage.setItem('tinyVerseV6', JSON.stringify(STATE)),
-            load: () => {
-                const save = localStorage.getItem('tinyVerseV6');
-                if (save) {
-                    const loaded = JSON.parse(save);
-                    Object.assign(STATE, loaded);
-                    // Migrations
-                    if(typeof STATE.landOwned === 'undefined') STATE.landOwned = false;
-                    if(typeof STATE.coreLevel === 'undefined') STATE.coreLevel = 0;
-                    if(typeof STATE.hasBlackHole === 'undefined') STATE.hasBlackHole = false;
-                    
-                    const seconds = (Date.now() - STATE.lastSaveTime) / 1000;
-                    if (seconds > 10) {
-                        let prod = game.calculateProduction();
-                        const gain = prod * seconds;
-                        STATE.unclaimed += gain;
-                        game.showToast(`Offline: +${formatNumber(gain)}`);
+            save: async () => {
+                // Save to local storage for backup/speed
+                localStorage.setItem('tinyVerseV7', JSON.stringify(STATE));
+                
+                // Save to Firebase
+                if (currentUser && db) {
+                    try {
+                        const userRef = window.firebaseApp.doc(db, 'artifacts', appId, 'users', currentUser.uid, 'saveData');
+                        await window.firebaseApp.setDoc(userRef, STATE, { merge: true });
+                        
+                        // Update Leaderboard Entry (Public)
+                        const lbRef = window.firebaseApp.doc(db, 'artifacts', appId, 'public', 'data', 'leaderboard', currentUser.uid);
+                        await window.firebaseApp.setDoc(lbRef, {
+                            name: STATE.universeName || "Anonymous",
+                            stars: STATE.stars,
+                            stardust: STATE.stardust,
+                            userId: currentUser.uid
+                        }, { merge: true });
+                        
+                    } catch (e) {
+                        console.error("Save failed", e);
                     }
-                    STATE.lastSaveTime = Date.now();
                 }
+            },
+
+            load: async () => {
+                // Try Local First
+                const localSave = localStorage.getItem('tinyVerseV7');
+                if (localSave) Object.assign(STATE, JSON.parse(localSave));
+
+                // Try Cloud Overlay
+                if (currentUser && db) {
+                    try {
+                        const userRef = window.firebaseApp.doc(db, 'artifacts', appId, 'users', currentUser.uid, 'saveData');
+                        const docSnap = await window.firebaseApp.getDoc(userRef);
+                        if (docSnap.exists()) {
+                            Object.assign(STATE, docSnap.data());
+                        }
+                    } catch (e) {
+                        console.error("Cloud load failed", e);
+                    }
+                }
+
+                // Migrations
+                if(typeof STATE.landOwned === 'undefined') STATE.landOwned = false;
+                if(typeof STATE.coreLevel === 'undefined') STATE.coreLevel = 0;
+                if(typeof STATE.hasBlackHole === 'undefined') STATE.hasBlackHole = false;
+                if(typeof STATE.universeName === 'undefined') STATE.universeName = "Unknown";
+                
+                // Offline Calc
+                const seconds = (Date.now() - STATE.lastSaveTime) / 1000;
+                if (seconds > 10) {
+                    let prod = game.calculateProduction();
+                    const gain = prod * seconds;
+                    STATE.unclaimed += gain;
+                    game.showToast(`Offline: +${formatNumber(gain)}`);
+                }
+                STATE.lastSaveTime = Date.now();
+                game.updateUI();
             }
         };
-
-        window.addEventListener('keydown', (e) => {
-            if (e.key.toLowerCase() === 'i') {
-                STATE.stardust += 100000000;
-                game.updateUI();
-                game.showToast("Cheat: +100M Dust");
-            }
-        });
 
         window.onload = game.init;
 

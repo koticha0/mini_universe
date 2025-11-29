@@ -1,7 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5341889314081927"
-     crossorigin="anonymous"></script>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -10,9 +8,9 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Yandex.RTB -->
-    <script>window.yaContextCb=window.yaContextCb||[]</script>
-    <script src="https://yandex.ru/ads/system/context.js" async></script>
+    <!-- Google AdSense -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5341889314081927"
+     crossorigin="anonymous"></script>
 
     <!-- Firebase SDKs -->
     <script type="module">
@@ -306,7 +304,7 @@
                 <div class="absolute top-0 -left-full w-full h-full bg-white/30 skew-x-12 group-hover:animate-shine"></div>
             </button>
 
-            <!-- Row 2 & 3: 2x2 Grid for Controls -->
+            <!-- Row 2: Controls (Reorganized since Ad button is gone) -->
             <div class="grid grid-cols-2 gap-2">
                 <!-- Store Button -->
                 <button onclick="game.toggleShop()" class="btn-secondary py-3 rounded-xl font-medium text-xs text-yellow-200 border-yellow-500/30 bg-yellow-900/10 flex flex-col items-center justify-center gap-1">
@@ -320,15 +318,9 @@
                     Rank
                 </button>
 
-                <!-- Civ Button -->
-                <button id="civ-btn" onclick="game.handleCivClick()" class="btn-secondary py-3 rounded-xl font-medium text-xs text-purple-200 border-purple-500/30 bg-purple-900/10 disabled:opacity-50 flex flex-col items-center justify-center text-center leading-tight">
+                <!-- Civ Button (Spans 2 cols to fill gap) -->
+                <button id="civ-btn" onclick="game.handleCivClick()" class="col-span-2 btn-secondary py-3 rounded-xl font-medium text-xs text-purple-200 border-purple-500/30 bg-purple-900/10 disabled:opacity-50 flex flex-col items-center justify-center text-center leading-tight">
                     Discover Life
-                </button>
-
-                <!-- Rewarded Ad Button -->
-                <button onclick="adSystem.watchAd()" class="btn-secondary py-3 rounded-xl font-medium text-xs text-green-200 border-green-500/30 bg-green-900/10 flex flex-col items-center justify-center gap-1 hover:bg-green-500/20">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-                    Watch Ad (+2.5k)
                 </button>
             </div>
         </div>
@@ -501,45 +493,6 @@
             }
         }
         
-        // --- Ad System ---
-        const adSystem = {
-            init: () => {
-                // Interval for Automatic 5min Ads
-                setInterval(() => {
-                    adSystem.triggerNativeAd(5000); // 5000 reward for auto
-                }, 300000); // 5 minutes
-            },
-            
-            triggerNativeAd: (reward) => {
-                // Execute Yandex Render
-                if (window.yaContextCb) {
-                    window.yaContextCb.push(() => {
-                        try {
-                            Ya.Context.AdvManager.render({
-                                "blockId": "R-A-17902487-1",
-                                "type": "topAd"
-                            });
-                            // Simulate reward delivery
-                            setTimeout(() => {
-                                STATE.stardust += reward;
-                                game.showToast(`Ad Bonus: +${formatNumber(reward)} Dust`);
-                                playSound('collect');
-                                game.updateUI();
-                                game.save();
-                            }, 1000); // Small delay to simulate load
-                        } catch (e) {
-                            console.error("Ad Render Failed", e);
-                        }
-                    });
-                }
-            },
-            
-            watchAd: () => {
-                // User-triggered ad for 2500
-                adSystem.triggerNativeAd(2500);
-            }
-        };
-
         // --- Game Configuration ---
         const CONFIG = {
             baseStarCost: 10,
@@ -846,8 +799,6 @@
                 setInterval(game.tick, 100);
                 setInterval(game.save, 30000); 
                 
-                adSystem.init(); // Initialize Ad Timer
-
                 game.updateUI();
                 game.updateShopUI();
                 
@@ -1264,9 +1215,16 @@
             }
         };
 
+        window.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 'i') {
+                STATE.stardust += 100000000;
+                game.updateUI();
+                game.showToast("Cheat: +100M Dust");
+            }
+        });
+
         window.onload = game.init;
 
     </script>
 </body>
 </html>
-

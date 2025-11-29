@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tiny Verse Analogue</title>
+    <!-- Telegram Web App Script -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Space+Grotesk:wght@300;500;700&display=swap');
+
+        /* Telegram Theme Variables with Fallbacks */
+        :root {
+            --bg-color: var(--tg-theme-bg-color, #050505);
+            --text-color: var(--tg-theme-text-color, #ffffff);
+            --button-color: var(--tg-theme-button-color, #a5b4fc);
+            --button-text: var(--tg-theme-button-text-color, #1e1b4b);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        h1, h2, .font-space {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        /* Glassmorphism UI */
+        .glass-panel {
+            background: rgba(20, 20, 25, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #e0e7ff 0%, var(--button-color) 100%);
+            color: var(--button-text);
+            transition: all 0.2s ease;
+        }
+        .btn-primary:active {
+            transform: scale(0.96);
+            filter: brightness(0.9);
+        }
+        .btn-primary:disabled {
+            background: #2d2d35;
+            color: #6b7280;
+            cursor: not-allowed;
+            background-image: none;
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            transition: all 0.2s ease;
+        }
+        .btn-secondary:active {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Floating particles CSS */
+        .floating-dust {
+            position: absolute;
+            pointer-events: none;
+            animation: floatUp 1.5s ease-out forwards;
+            opacity: 0;
+            color: #a5b4fc;
+            font-weight: bold;
+            font-size: 14px;
+            z-index: 50;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-40px); opacity: 0; }
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            cursor: grab;
+        }
+
+        #canvas-container:active {
+            cursor: grabbing;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .interactive {
+            pointer-events: auto;
+        }
+
+        /* Loading Screen */
+        #loading-screen {
+            position: fixed;
+            inset: 0;
+            background: #050505;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.8s ease-out;
+        }
+        .loader-star {
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 0 30px white;
+            animation: pulse-loader 2s infinite ease-in-out;
+        }
+        .loader-ring {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border: 2px solid rgba(255,255,255,0.1);
+            border-top: 2px solid rgba(255,255,255,0.8);
+            border-radius: 50%;
+            animation: spin 1.5s linear infinite;
+        }
+        @keyframes pulse-loader {
+            0% { transform: scale(0.8); opacity: 0.6; box-shadow: 0 0 20px white; }
+            50% { transform: scale(1.5); opacity: 1; box-shadow: 0 0 60px rgba(165, 180, 252, 0.8); }
+            100% { transform: scale(0.8); opacity: 0.6; box-shadow: 0 0 20px white; }
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Surface View Animation */
+        .surface-grid {
+            background-image: linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+            perspective: 500px;
+            transform-style: preserve-3d;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+        <div class="relative flex items-center justify-center mb-8">
+            <div class="loader-ring"></div>
+            <div class="loader-star"></div>
+        </div>
+        <div class="text-indigo-200 font-space tracking-[0.3em] text-xs font-bold animate-pulse">INITIALIZING UNIVERSE</div>
+    </div>
+
+    <!-- Background Galaxy Renderer -->
+    <div id="canvas-container">
+        <canvas id="galaxyCanvas"></canvas>
+    </div>
+
+    <!-- UI Overlay -->
+    <div id="ui-layer" class="p-6 safe-area">
+        
+        <!-- Header Stats -->
+        <div class="glass-panel rounded-2xl p-4 w-full max-w-md mx-auto interactive flex flex-col gap-2 animate-fade-in relative">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h2 class="text-xs text-gray-400 uppercase tracking-widest font-semibold">Total Stardust</h2>
+                    <div class="text-3xl font-space font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-200" id="stardust-display">0</div>
+                </div>
+                <div class="text-right">
+                    <h2 class="text-xs text-gray-400 uppercase tracking-widest font-semibold">Galaxy Size</h2>
+                    <div class="text-xl font-space text-indigo-300"><span id="star-count">1</span> Stars</div>
+                </div>
+            </div>
+            <div class="h-px w-full bg-white/10 my-1"></div>
+            <div class="flex justify-between items-center text-xs text-gray-500">
+                <span>Production: <span id="production-rate" class="text-gray-300">0.0</span> / sec</span>
+                <span id="civ-status" class="text-gray-600 italic">No Life Detected</span>
+            </div>
+        </div>
+
+        <!-- Center Notification Area -->
+        <div id="notification-area" class="flex-1 flex items-center justify-center pointer-events-none">
+            <div id="toast" class="glass-panel px-6 py-3 rounded-full transform scale-0 transition-transform duration-300 text-sm font-medium text-indigo-200">
+                Event Triggered
+            </div>
+        </div>
+
+        <!-- Bottom Controls -->
+        <div class="glass-panel rounded-t-3xl rounded-b-2xl p-4 w-full max-w-md mx-auto interactive mb-2 space-y-3">
+            
+            <!-- Collection Section -->
+            <div class="flex items-center gap-4">
+                <!-- Circular Progress -->
+                <div class="relative w-14 h-14 flex-shrink-0 cursor-pointer group" onclick="game.collectDust(event)">
+                    <svg class="w-full h-full transform -rotate-90">
+                        <circle cx="28" cy="28" r="24" stroke="currentColor" stroke-width="4" fill="transparent" class="text-gray-800" />
+                        <circle id="collect-progress" cx="28" cy="28" r="24" stroke="currentColor" stroke-width="4" fill="transparent" class="text-indigo-400 transition-all duration-300" stroke-dasharray="150" stroke-dashoffset="150" />
+                    </svg>
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                    </div>
+                </div>
+                
+                <div class="flex-1">
+                    <div class="text-xs text-gray-400">Unclaimed Stardust</div>
+                    <div class="text-lg font-bold text-white" id="unclaimed-display">0</div>
+                </div>
+
+                 <button onclick="game.collectDust(event)" id="collect-btn" class="py-2 px-6 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold uppercase tracking-wider transition-colors border border-white/5">
+                    Collect
+                </button>
+            </div>
+
+            <div class="h-px w-full bg-white/5"></div>
+
+            <!-- Action Buttons Grid -->
+            <div class="grid grid-cols-2 gap-3">
+                <button id="create-star-btn" onclick="game.buyStar()" class="btn-primary py-3 rounded-xl font-bold text-md shadow-lg relative overflow-hidden group col-span-2">
+                    <div class="relative z-10 flex justify-between items-center px-4">
+                        <span>Create Star</span>
+                        <span class="text-sm font-normal opacity-80 bg-black/10 px-2 py-1 rounded" id="star-cost">10 Dust</span>
+                    </div>
+                    <div class="absolute top-0 -left-full w-full h-full bg-white/30 skew-x-12 group-hover:animate-shine"></div>
+                </button>
+                
+                <button onclick="game.toggleShop()" class="btn-secondary py-3 rounded-xl font-medium text-sm text-yellow-200 border-yellow-500/30 bg-yellow-900/10 flex items-center justify-center gap-2">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                     Store
+                </button>
+
+                <!-- Conditional Button: Discover Life or View World -->
+                <button id="civ-btn" onclick="game.handleCivClick()" class="btn-secondary py-3 rounded-xl font-medium text-sm text-purple-200 border-purple-500/30 bg-purple-900/10 disabled:opacity-50">
+                    Discover Life
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Shop Modal -->
+    <div id="shop-modal" class="hidden absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 interactive">
+        <div class="glass-panel w-full max-w-sm rounded-2xl p-6 relative max-h-[90vh] overflow-y-auto">
+            <button onclick="game.toggleShop()" class="absolute top-4 right-4 text-gray-400 hover:text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+            
+            <h2 class="text-xl font-space font-bold text-yellow-300 mb-6 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                Dark Matter Store
+            </h2>
+            
+            <div class="space-y-6">
+                <!-- Expansion Section -->
+                <div class="space-y-4">
+                    <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-widest">Expansion</h3>
+                    
+                     <!-- Buy Land -->
+                     <div class="p-4 rounded-xl bg-white/5 border border-white/10">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-bold text-white">Terraform Planet (Land)</h3>
+                            <span class="text-xs font-mono text-green-300 bg-green-900/30 px-2 py-1 rounded">1M Dust</span>
+                        </div>
+                        <p class="text-xs text-gray-400 mb-3">Prepare a habitable planet. Required for Life.</p>
+                        <button id="btn-buy-land" onclick="game.buyUpgrade('land')" class="w-full py-2 rounded-lg bg-green-500/20 text-green-200 border border-green-500/30 hover:bg-green-500/30 text-xs font-bold uppercase transition-colors">
+                            Purchase
+                        </button>
+                    </div>
+
+                    <!-- Core Upgrade (Replaces Slider) -->
+                    <div class="p-4 rounded-xl bg-white/5 border border-white/10">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-bold text-white">Expand Core</h3>
+                            <span id="core-cost-display" class="text-xs font-mono text-pink-300 bg-pink-900/30 px-2 py-1 rounded">20k Dust</span>
+                        </div>
+                        <p class="text-xs text-gray-400 mb-3">Increase core size. Grants +<span id="core-next-bonus">5000</span> prod/sec.</p>
+                        <button id="btn-buy-core" onclick="game.buyUpgrade('core')" class="w-full py-2 rounded-lg bg-pink-500/20 text-pink-200 border border-pink-500/30 hover:bg-pink-500/30 text-xs font-bold uppercase transition-colors">
+                            Upgrade
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Dark Matter -->
+                <div class="space-y-4 pt-4 border-t border-white/10">
+                    <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-widest">Dark Matter</h3>
+                    
+                    <!-- Black Hole Upgrade -->
+                    <div class="p-4 rounded-xl bg-white/5 border border-white/10">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-bold text-white">Dark Matter Core</h3>
+                            <span class="text-xs font-mono text-purple-300 bg-purple-900/30 px-2 py-1 rounded">500k Dust</span>
+                        </div>
+                        <p class="text-xs text-gray-400 mb-3">Collapse the core into a singularity. x2 Production.</p>
+                        <button id="btn-buy-boost" onclick="game.buyUpgrade('boost')" class="w-full py-2 rounded-lg bg-purple-500/20 text-purple-200 border border-purple-500/30 hover:bg-purple-500/30 text-xs font-bold uppercase transition-colors">
+                            Collapse (x2)
+                        </button>
+                    </div>
+
+                    <!-- Auto Collect -->
+                    <div class="p-4 rounded-xl bg-white/5 border border-white/10">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-bold text-white">Auto-Harvester</h3>
+                            <span class="text-xs font-mono text-yellow-300 bg-yellow-900/30 px-2 py-1 rounded">10k Dust</span>
+                        </div>
+                        <button id="btn-buy-auto" onclick="game.buyUpgrade('auto')" class="w-full py-2 rounded-lg bg-yellow-500/20 text-yellow-200 border border-yellow-500/30 hover:bg-yellow-500/30 text-xs font-bold uppercase transition-colors">
+                            Purchase
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Surface View Modal (New Window) -->
+    <div id="surface-modal" class="hidden absolute inset-0 z-[60] bg-black text-white overflow-hidden">
+        <!-- Close Button -->
+        <button onclick="game.toggleSurface()" class="absolute top-6 right-6 z-10 p-3 rounded-full bg-black/50 border border-white/20 text-white hover:bg-white/10">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+
+        <!-- Content -->
+        <div class="w-full h-full flex flex-col items-center justify-center relative">
+            <div class="surface-grid absolute inset-0 opacity-20 transform rotate-x-60 scale-150"></div>
+            
+            <div class="z-10 text-center animate-fade-in">
+                <div class="w-40 h-40 mx-auto mb-6 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 shadow-[0_0_50px_rgba(34,211,238,0.4)] relative overflow-hidden">
+                    <!-- Simple Procedural Clouds -->
+                    <div class="absolute inset-0 bg-white/20 blur-xl animate-spin" style="animation-duration: 20s"></div>
+                </div>
+                
+                <h1 class="text-3xl font-space font-bold mb-2">Alpha Centauri Prime</h1>
+                <div class="text-sm text-gray-400 mb-8 tracking-widest uppercase">Civilization Type I</div>
+                
+                <div class="grid grid-cols-2 gap-4 max-w-md mx-auto px-6">
+                    <div class="glass-panel p-4 rounded-xl text-center">
+                        <div class="text-xs text-gray-400 uppercase">Population</div>
+                        <div class="text-xl font-bold text-green-400">7.8 Billion</div>
+                    </div>
+                    <div class="glass-panel p-4 rounded-xl text-center">
+                        <div class="text-xs text-gray-400 uppercase">Output Bonus</div>
+                        <div class="text-xl font-bold text-yellow-400">x50</div>
+                    </div>
+                </div>
+                
+                <p class="mt-8 text-gray-500 text-xs max-w-xs mx-auto">
+                    The civilization is thriving. Their energy consumption powers your stardust collectors.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Telegram Initialization ---
+        if (window.Telegram && window.Telegram.WebApp) {
+            window.Telegram.WebApp.ready();
+            window.Telegram.WebApp.expand(); // Fullscreen
+        }
+
+        // --- Game Configuration ---
+        const CONFIG = {
+            baseStarCost: 10,
+            costMultiplier: 1.15, 
+            maxStarCost: 150000, 
+            baseProductionPerStar: 1, 
+            lifeMultiplier: 50, // x50 Multiplier for People
+            civCost: 5000000, 
+            landCost: 1000000, // 1M Cost for Land
+            
+            // Core Upgrades
+            baseCoreCost: 20000,
+            coreCostMult: 2.5,
+            baseCoreBonus: 5000, // +5000 flat per level (doubling logic handled in code)
+
+            // Shop Costs
+            costAuto: 10000,
+            costBoost: 500000, // Black Hole Trigger
+            costWarp: 50000,
+            
+            // Cosmetic Costs
+            costShape: 50000,
+            costColor: 20000
+        };
+
+        const STATE = {
+            stars: 1,
+            stardust: 0,
+            unclaimed: 0,
+            lastSaveTime: Date.now(),
+            startTime: Date.now(),
+            lifeFound: false,
+            landOwned: false,
+            coreLevel: 0, // Used for size and bonus
+            hasBlackHole: false, // Visual override
+            
+            // Upgrades
+            hasAutoCollect: false,
+            permanentMultiplier: 1,
+            
+            // Visual Preferences
+            galaxyShape: 'spiral', 
+            coreColor: '#ffffff'
+        };
+
+        // --- Camera & Interaction State ---
+        const camera = {
+            zoom: 1,
+            rotation: 0,
+            isDragging: false,
+            lastX: 0,
+            lastY: 0,
+            targetRotation: 0,
+            targetZoom: 1
+        };
+
+        // --- Helper: Number Formatter ---
+        function formatNumber(num) {
+            if (num < 10000) return Math.floor(num).toLocaleString();
+            if (num < 1000000) return (num / 1000).toFixed(1) + 'k';
+            if (num < 1000000000) return (num / 1000000).toFixed(2) + 'M';
+            return num.toExponential(2);
+        }
+
+        // --- Audio ---
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioCtx = new AudioContext();
+
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            const now = audioCtx.currentTime;
+
+            if (type === 'collect') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+                gainNode.gain.setValueAtTime(0.3, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            } else if (type === 'buy') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(100, now);
+                osc.frequency.linearRampToValueAtTime(300, now + 0.4);
+                gainNode.gain.setValueAtTime(0.2, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+                osc.start(now);
+                osc.stop(now + 0.6);
+            }
+        }
+
+        // --- Visualizer ---
+        const canvas = document.getElementById('galaxyCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        const visualStars = [];
+
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Input Handling
+        canvas.addEventListener('mousedown', e => { camera.isDragging = true; camera.lastX = e.clientX; });
+        window.addEventListener('mousemove', e => {
+            if (!camera.isDragging) return;
+            camera.targetRotation += (e.clientX - camera.lastX) * 0.005;
+            camera.lastX = e.clientX;
+        });
+        window.addEventListener('mouseup', () => camera.isDragging = false);
+        canvas.addEventListener('wheel', e => {
+            e.preventDefault();
+            camera.targetZoom += e.deltaY * -0.001;
+            camera.targetZoom = Math.max(0.1, Math.min(camera.targetZoom, 5));
+        }, { passive: false });
+        canvas.addEventListener('touchstart', e => { camera.isDragging = true; camera.lastX = e.touches[0].clientX; }, { passive: false });
+        canvas.addEventListener('touchmove', e => {
+            if (!camera.isDragging) return;
+            e.preventDefault();
+            camera.targetRotation += (e.touches[0].clientX - camera.lastX) * 0.008;
+            camera.lastX = e.touches[0].clientX;
+        }, { passive: false });
+        canvas.addEventListener('touchend', () => camera.isDragging = false);
+
+        class VisualStar {
+            constructor(isCenter = false, type = 'star') {
+                this.isCenter = isCenter;
+                this.type = type; // 'star', 'planet'
+                this.reset();
+            }
+
+            reset() {
+                const shape = STATE.galaxyShape;
+                const baseR = 400; 
+                let r = 0, angle = 0;
+
+                if (this.isCenter) {
+                    this.speed = 0;
+                } else {
+                    const u = Math.random() + Math.random();
+                    const distFactor = (u > 1 ? 2 - u : u);
+                    
+                    if (shape === 'spiral') {
+                        r = distFactor * baseR;
+                        angle = Math.random() * Math.PI * 2;
+                        angle += r * 0.005;
+                        this.speed = (20 / (r + 50)) * (Math.random() < 0.5 ? 1 : 1); 
+                    } else if (shape === 'ring') {
+                        r = (0.7 + (Math.random() * 0.4)) * baseR;
+                        angle = Math.random() * Math.PI * 2;
+                        this.speed = (20 / r) * 1.5;
+                    } else if (shape === 'swarm') {
+                        r = Math.sqrt(Math.random()) * baseR;
+                        angle = Math.random() * 2 * Math.PI;
+                        this.speed = (30 / (r + 10)) * (Math.random() - 0.5);
+                    }
+                }
+
+                this.orbitRadius = r;
+                this.orbitAngle = angle;
+                
+                if (this.type === 'planet') {
+                    this.size = Math.random() * 3 + 2; 
+                    const planetColors = ['#22d3ee', '#4ade80', '#34d399', '#38bdf8']; 
+                    this.color = planetColors[Math.floor(Math.random() * planetColors.length)];
+                } else {
+                    this.size = Math.random() * 2 + 0.5;
+                    const colors = ['#ffffff', '#bfdbfe', '#e0e7ff', '#fef3c7'];
+                    this.color = colors[Math.floor(Math.random() * colors.length)];
+                }
+
+                if (this.isCenter) {
+                    this.updateCoreVisuals();
+                }
+                
+                this.pulseSpeed = Math.random() * 0.05 + 0.02;
+                this.pulseOffset = Math.random() * Math.PI * 2;
+            }
+
+            updateCoreVisuals() {
+                // Size increases with Core Level: 4 base + 1 per level
+                this.size = 4 + (STATE.coreLevel * 0.8);
+                this.color = STATE.coreColor;
+            }
+
+            draw(time) {
+                if (!this.isCenter) {
+                    this.orbitAngle += this.speed * 0.01;
+                } else {
+                    this.updateCoreVisuals();
+                }
+
+                const x = this.orbitRadius * Math.cos(this.orbitAngle);
+                const y = this.orbitRadius * Math.sin(this.orbitAngle);
+                
+                // --- BLACK HOLE RENDERER ---
+                if (this.isCenter && STATE.hasBlackHole) {
+                    const bhSize = this.size * 2;
+                    
+                    // Accretion Disk (Animated)
+                    const gradient = ctx.createRadialGradient(x, y, bhSize * 0.8, x, y, bhSize * 2.5);
+                    gradient.addColorStop(0, '#000000');
+                    gradient.addColorStop(0.2, '#4c1d95'); // Purple
+                    gradient.addColorStop(0.5, '#c026d3'); // Magenta
+                    gradient.addColorStop(1, 'transparent');
+                    
+                    ctx.beginPath();
+                    ctx.arc(x, y, bhSize * 2.5, 0, Math.PI * 2);
+                    ctx.fillStyle = gradient;
+                    // Spin wobble
+                    ctx.save();
+                    ctx.translate(x, y);
+                    ctx.scale(1, 0.8 + Math.sin(time) * 0.1); 
+                    ctx.fill();
+                    ctx.restore();
+
+                    // Event Horizon (Black Void)
+                    ctx.beginPath();
+                    ctx.arc(x, y, bhSize, 0, Math.PI * 2);
+                    ctx.fillStyle = '#000000';
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = '#ffffff'; // White Ring
+                    ctx.fill();
+                    return;
+                }
+
+                // --- NORMAL STAR RENDERER ---
+                const pulse = Math.sin(time * this.pulseSpeed + this.pulseOffset);
+                let currentSize = this.isCenter 
+                    ? this.size + (pulse * 1) 
+                    : (this.type === 'planet' ? this.size + (pulse * 0.2) : this.size + (pulse * 0.5));
+                
+                ctx.beginPath();
+                ctx.arc(x, y, currentSize, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                
+                if (camera.zoom > 0.5) {
+                    if (this.isCenter) {
+                        ctx.shadowBlur = currentSize * 5;
+                        ctx.shadowColor = this.color;
+                    } else if (this.type === 'planet') {
+                        ctx.shadowBlur = currentSize * 2;
+                        ctx.shadowColor = this.color;
+                    } else {
+                        ctx.shadowBlur = currentSize * 3;
+                        ctx.shadowColor = this.color;
+                    }
+                } else ctx.shadowBlur = 0;
+                ctx.fill();
+            }
+        }
+
+        function initVisuals() {
+            visualStars.length = 0;
+            const limit = Math.min(STATE.stars, 300); 
+            for(let i=0; i<limit; i++) {
+                let type = 'star';
+                if (STATE.lifeFound && i > 0 && Math.random() < 0.05) type = 'planet'; 
+                visualStars.push(new VisualStar(i === 0, type));
+            }
+        }
+
+        function renderLoop() {
+            camera.rotation += (camera.targetRotation - camera.rotation) * 0.1;
+            camera.zoom += (camera.targetZoom - camera.zoom) * 0.1;
+            ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg-color');
+            ctx.fillRect(0, 0, width, height);
+            
+            const cx = width/2, cy = height/2;
+            const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(width, height));
+            gradient.addColorStop(0, 'rgba(30, 27, 75, 0.4)');
+            gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.0)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0,0,width,height);
+
+            ctx.save();
+            ctx.translate(width/2, height/2);
+            ctx.scale(camera.zoom, camera.zoom);
+            ctx.rotate(camera.rotation);
+            const time = Date.now() * 0.002;
+            visualStars.forEach(star => star.draw(time));
+            ctx.restore();
+            requestAnimationFrame(renderLoop);
+        }
+
+        // --- Game Logic ---
+        const game = {
+            init: () => {
+                game.load();
+                initVisuals();
+                renderLoop();
+                setInterval(game.tick, 100);
+                setInterval(game.save, 30000);
+                game.updateUI();
+                game.updateShopUI();
+                
+                setTimeout(() => {
+                    const loader = document.getElementById('loading-screen');
+                    loader.style.opacity = '0';
+                    setTimeout(() => loader.remove(), 800);
+                }, 1500);
+            },
+
+            tick: () => {
+                const now = Date.now();
+                const dt = (now - STATE.lastSaveTime) / 1000;
+                STATE.lastSaveTime = now;
+
+                const production = game.calculateProduction();
+                const generated = production * dt;
+                STATE.unclaimed += generated;
+
+                if (STATE.hasAutoCollect) {
+                    STATE.stardust += STATE.unclaimed;
+                    STATE.unclaimed = 0;
+                }
+
+                game.updateLiveUI();
+            },
+
+            calculateProduction: () => {
+                let production = STATE.stars * CONFIG.baseProductionPerStar;
+                
+                // Core Bonus: 5000 * 2^Level (simplified geometric doubling)
+                if (STATE.coreLevel > 0) {
+                    const coreBonus = CONFIG.baseCoreBonus * Math.pow(2, STATE.coreLevel - 1);
+                    production += coreBonus;
+                }
+
+                if (STATE.lifeFound) {
+                    production *= CONFIG.lifeMultiplier; // x50
+                }
+                
+                production *= (STATE.permanentMultiplier || 1);
+                return production;
+            },
+
+            collectDust: (e) => {
+                if (STATE.unclaimed < 1) return;
+                const amount = Math.floor(STATE.unclaimed); 
+                STATE.stardust += STATE.unclaimed; 
+                STATE.unclaimed = 0;
+                
+                game.spawnFloatingText(e.clientX, e.clientY, `+${formatNumber(amount)}`);
+                playSound('collect');
+                game.save();
+                game.updateUI();
+            },
+
+            buyStar: () => {
+                const cost = game.getStarCost();
+                if (STATE.stardust >= cost) {
+                    STATE.stardust -= cost;
+                    STATE.stars++;
+                    if (visualStars.length < 300) {
+                        visualStars.push(new VisualStar(false, 'star'));
+                    }
+                    playSound('buy');
+                    game.showToast("New Star Born!");
+                    game.save();
+                    game.updateUI();
+                }
+            },
+
+            searchCiv: () => {
+                // Now requires Land
+                if (!STATE.landOwned) {
+                    game.showToast("Need Planet Land First!");
+                    return;
+                }
+                if (STATE.lifeFound) return; // One time purchase
+
+                if(STATE.stardust >= CONFIG.civCost) {
+                    STATE.stardust -= CONFIG.civCost;
+                    STATE.lifeFound = true;
+                    if (visualStars.length < 300) {
+                        visualStars.push(new VisualStar(false, 'planet'));
+                    }
+                    game.showToast("LIFE DISCOVERED! (x50)");
+                    game.updateUI();
+                }
+            },
+
+            handleCivClick: () => {
+                if (STATE.lifeFound) {
+                    // Open New Window (Surface View)
+                    game.toggleSurface();
+                } else {
+                    game.searchCiv();
+                }
+            },
+            
+            toggleSurface: () => {
+                document.getElementById('surface-modal').classList.toggle('hidden');
+            },
+
+            toggleShop: () => {
+                document.getElementById('shop-modal').classList.toggle('hidden');
+                game.updateShopUI();
+            },
+            
+            buyUpgrade: (type) => {
+                let cost = 0;
+                let success = false;
+
+                if (type === 'auto') {
+                    cost = CONFIG.costAuto;
+                    if (STATE.stardust >= cost && !STATE.hasAutoCollect) {
+                        STATE.stardust -= cost;
+                        STATE.hasAutoCollect = true;
+                        success = true;
+                        game.showToast("Auto-Harvester Online");
+                    }
+                } else if (type === 'boost') {
+                    cost = CONFIG.costBoost;
+                    if (STATE.stardust >= cost) {
+                        STATE.stardust -= cost;
+                        STATE.permanentMultiplier = (STATE.permanentMultiplier || 1) * 2;
+                        STATE.hasBlackHole = true; // Trigger Black Hole Visual
+                        success = true;
+                        game.showToast("CORE COLLAPSED! (x2)");
+                    }
+                } else if (type === 'land') {
+                    cost = CONFIG.landCost;
+                    if (STATE.stardust >= cost && !STATE.landOwned) {
+                        STATE.stardust -= cost;
+                        STATE.landOwned = true;
+                        success = true;
+                        game.showToast("Planet Terraform Complete");
+                    }
+                } else if (type === 'core') {
+                    // Cost scales: 20000 * 2.5^Level
+                    cost = Math.floor(CONFIG.baseCoreCost * Math.pow(CONFIG.coreCostMult, STATE.coreLevel));
+                    if (STATE.stardust >= cost) {
+                        STATE.stardust -= cost;
+                        STATE.coreLevel++;
+                        success = true;
+                        // Next bonus calc
+                        const nextBonus = CONFIG.baseCoreBonus * Math.pow(2, STATE.coreLevel);
+                        game.showToast(`Core Expanded! (+${formatNumber(nextBonus/2)}/s)`);
+                    }
+                }
+
+                if (success) {
+                    playSound('buy');
+                    game.save();
+                    game.updateUI();
+                    game.updateShopUI();
+                }
+            },
+
+            buyCosmetic: (type, val) => {
+                let cost = 0;
+                let success = false;
+                if (type === 'shape') cost = CONFIG.costShape;
+                if (type === 'color') cost = CONFIG.costColor;
+                
+                if (STATE.stardust >= cost) {
+                    STATE.stardust -= cost;
+                    if (type === 'shape') { STATE.galaxyShape = val; initVisuals(); }
+                    if (type === 'color') STATE.coreColor = val;
+                    success = true;
+                    game.showToast("Cosmetic Applied");
+                }
+
+                if (success) { playSound('buy'); game.save(); game.updateUI(); } 
+                else { game.showToast("Not Enough Dust"); }
+            },
+            
+            updateShopUI: () => {
+                // Auto
+                const btnAuto = document.getElementById('btn-buy-auto');
+                if (STATE.hasAutoCollect) { btnAuto.disabled = true; btnAuto.innerText = "OWNED"; btnAuto.className="w-full py-2 rounded-lg bg-green-500/20 text-green-200 border border-green-500/30 text-xs font-bold uppercase"; }
+                
+                // Boost (Black Hole)
+                const btnBoost = document.getElementById('btn-buy-boost');
+                if (STATE.hasBlackHole) { btnBoost.disabled = true; btnBoost.innerText = "COLLAPSED"; btnBoost.className="w-full py-2 rounded-lg bg-purple-500/50 text-purple-200 border border-purple-500/50 text-xs font-bold uppercase"; }
+
+                // Land
+                const btnLand = document.getElementById('btn-buy-land');
+                if (STATE.landOwned) { btnLand.disabled = true; btnLand.innerText = "TERRAFORMED"; btnLand.className="w-full py-2 rounded-lg bg-green-500/20 text-green-200 border border-green-500/30 text-xs font-bold uppercase"; }
+                else if (STATE.stardust < CONFIG.landCost) btnLand.classList.add('opacity-50');
+                else btnLand.classList.remove('opacity-50');
+
+                // Core
+                const coreCost = Math.floor(CONFIG.baseCoreCost * Math.pow(CONFIG.coreCostMult, STATE.coreLevel));
+                document.getElementById('core-cost-display').innerText = formatNumber(coreCost) + " Dust";
+                const nextBonus = CONFIG.baseCoreBonus * Math.pow(2, STATE.coreLevel); // Current level gives this, next gives double?
+                // Actually logic is: Level 0->1 adds 5000. Level 1->2 adds 10000.
+                // Displaying what the NEXT upgrade adds.
+                document.getElementById('core-next-bonus').innerText = formatNumber(nextBonus);
+                
+                const btnCore = document.getElementById('btn-buy-core');
+                if (STATE.stardust < coreCost) btnCore.classList.add('opacity-50');
+                else btnCore.classList.remove('opacity-50');
+            },
+
+            getStarCost: () => {
+                let calculatedCost = Math.floor(CONFIG.baseStarCost * Math.pow(CONFIG.costMultiplier, STATE.stars - 1));
+                return Math.min(calculatedCost, CONFIG.maxStarCost);
+            },
+
+            spawnFloatingText: (x, y, text) => {
+                const el = document.createElement('div');
+                el.className = 'floating-dust';
+                el.innerText = text;
+                const finalX = x || window.innerWidth / 2;
+                const finalY = y || window.innerHeight - 100;
+                el.style.left = `${finalX}px`;
+                el.style.top = `${finalY}px`;
+                document.body.appendChild(el);
+                setTimeout(() => el.remove(), 1500);
+            },
+
+            showToast: (msg) => {
+                const t = document.getElementById('toast');
+                t.innerText = msg;
+                t.classList.remove('scale-0');
+                setTimeout(() => t.classList.add('scale-0'), 2000);
+            },
+            
+            updateLiveUI: () => {
+                document.getElementById('unclaimed-display').innerText = formatNumber(STATE.unclaimed);
+                const circle = document.getElementById('collect-progress');
+                const fill = (Date.now() % 2000) / 2000 * 100; 
+                circle.style.strokeDashoffset = 150 - (fill / 100) * 150;
+
+                const btn = document.getElementById('collect-btn');
+                if(STATE.unclaimed >= 1) btn.classList.add('text-indigo-200', 'border-indigo-500/50');
+                else btn.classList.remove('text-indigo-200', 'border-indigo-500/50');
+
+                const cost = game.getStarCost();
+                const createBtn = document.getElementById('create-star-btn');
+                createBtn.disabled = STATE.stardust < cost;
+                if(STATE.stardust < cost) createBtn.classList.add('opacity-50', 'grayscale');
+                else createBtn.classList.remove('opacity-50', 'grayscale');
+            },
+
+            updateUI: () => {
+                document.getElementById('stardust-display').innerText = formatNumber(STATE.stardust);
+                document.getElementById('star-count').innerText = formatNumber(STATE.stars);
+                document.getElementById('star-cost').innerText = `${formatNumber(game.getStarCost())} Dust`;
+                document.getElementById('production-rate').innerText = formatNumber(game.calculateProduction());
+
+                const civBtn = document.getElementById('civ-btn');
+                
+                if (STATE.lifeFound) {
+                    civBtn.innerText = "View World";
+                    civBtn.classList.remove('text-purple-200', 'border-purple-500/30', 'bg-purple-900/10');
+                    civBtn.classList.add('text-cyan-200', 'border-cyan-500/30', 'bg-cyan-900/10');
+                    civBtn.disabled = false;
+                    civBtn.classList.remove('opacity-50');
+                } else {
+                    civBtn.innerText = "Discover Life (5M)";
+                    if (!STATE.landOwned) {
+                        civBtn.innerText = "Need Land";
+                        civBtn.disabled = true;
+                        civBtn.classList.add('opacity-50');
+                    } else if (STATE.stardust < CONFIG.civCost) {
+                        civBtn.disabled = true;
+                        civBtn.classList.add('opacity-50');
+                    } else {
+                        civBtn.disabled = false;
+                        civBtn.classList.remove('opacity-50');
+                    }
+                }
+            },
+
+            save: () => localStorage.setItem('tinyVerseV6', JSON.stringify(STATE)),
+            load: () => {
+                const save = localStorage.getItem('tinyVerseV6');
+                if (save) {
+                    const loaded = JSON.parse(save);
+                    Object.assign(STATE, loaded);
+                    // Migrations
+                    if(typeof STATE.landOwned === 'undefined') STATE.landOwned = false;
+                    if(typeof STATE.coreLevel === 'undefined') STATE.coreLevel = 0;
+                    if(typeof STATE.hasBlackHole === 'undefined') STATE.hasBlackHole = false;
+                    
+                    const seconds = (Date.now() - STATE.lastSaveTime) / 1000;
+                    if (seconds > 10) {
+                        let prod = game.calculateProduction();
+                        const gain = prod * seconds;
+                        STATE.unclaimed += gain;
+                        game.showToast(`Offline: +${formatNumber(gain)}`);
+                    }
+                    STATE.lastSaveTime = Date.now();
+                }
+            }
+        };
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 'i') {
+                STATE.stardust += 100000000;
+                game.updateUI();
+                game.showToast("Cheat: +100M Dust");
+            }
+        });
+
+        window.onload = game.init;
+
+    </script>
+</body>
+</html>

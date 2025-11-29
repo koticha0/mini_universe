@@ -121,7 +121,6 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            /* Ensure UI fits in view height minus safe areas handled by body padding */
             box-sizing: border-box;
         }
 
@@ -223,8 +222,18 @@
     </div>
 
     <!-- UI Overlay -->
-    <div id="ui-layer" class="p-4 w-full h-full">
+    <div id="ui-layer" class="p-4 w-full h-full relative">
         
+        <!-- Zoom Slider (Right Side) -->
+        <div class="absolute right-4 top-1/2 transform -translate-y-1/2 h-48 w-10 flex items-center justify-center interactive z-40">
+            <div class="glass-panel rounded-full h-full w-full flex items-center justify-center py-4">
+                 <!-- Rotated -90deg for vertical effect. Min at bottom, Max at top. -->
+                 <input type="range" id="zoom-slider" min="0.1" max="5" step="0.1" value="1" 
+                   class="w-32 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer transform -rotate-90"
+                   style="width: 140px;"> 
+            </div>
+        </div>
+
         <!-- Header Stats -->
         <div class="glass-panel rounded-2xl p-4 w-full max-w-md mx-auto interactive flex flex-col gap-2 animate-fade-in relative safe-top-padding">
             <div class="flex justify-between items-center">
@@ -242,11 +251,6 @@
                 <span>Production: <span id="production-rate" class="text-gray-300">0.0</span> / sec</span>
                 <span id="civ-status" class="text-gray-600 italic">No Life Detected</span>
             </div>
-
-            <!-- Leaderboard Button -->
-            <button onclick="game.toggleLeaderboard()" class="absolute -right-12 top-2 p-3 rounded-full glass-panel hover:bg-white/10 transition text-yellow-200/80">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
-            </button>
         </div>
 
         <!-- Center Notification Area -->
@@ -287,22 +291,30 @@
             <div class="h-px w-full bg-white/5"></div>
 
             <!-- Action Buttons Grid -->
-            <div class="grid grid-cols-2 gap-3">
-                <button id="create-star-btn" onclick="game.buyStar()" class="btn-primary py-3 rounded-xl font-bold text-md shadow-lg relative overflow-hidden group col-span-2">
-                    <div class="relative z-10 flex justify-between items-center px-4">
-                        <span>Create Star</span>
-                        <span class="text-sm font-normal opacity-80 bg-black/10 px-2 py-1 rounded" id="star-cost">10 Dust</span>
-                    </div>
-                    <div class="absolute top-0 -left-full w-full h-full bg-white/30 skew-x-12 group-hover:animate-shine"></div>
-                </button>
-                
-                <button onclick="game.toggleShop()" class="btn-secondary py-3 rounded-xl font-medium text-sm text-yellow-200 border-yellow-500/30 bg-yellow-900/10 flex items-center justify-center gap-2">
+            <!-- 3 Columns for Store, Leaderboard, Civ -->
+            <button id="create-star-btn" onclick="game.buyStar()" class="btn-primary w-full py-3 rounded-xl font-bold text-md shadow-lg relative overflow-hidden group">
+                <div class="relative z-10 flex justify-between items-center px-4">
+                    <span>Create Star</span>
+                    <span class="text-sm font-normal opacity-80 bg-black/10 px-2 py-1 rounded" id="star-cost">10 Dust</span>
+                </div>
+                <div class="absolute top-0 -left-full w-full h-full bg-white/30 skew-x-12 group-hover:animate-shine"></div>
+            </button>
+
+            <div class="grid grid-cols-3 gap-2">
+                <!-- Store Button -->
+                <button onclick="game.toggleShop()" class="btn-secondary py-3 rounded-xl font-medium text-xs text-yellow-200 border-yellow-500/30 bg-yellow-900/10 flex flex-col items-center justify-center gap-1">
                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
                      Store
                 </button>
 
-                <!-- Conditional Button: Discover Life or View World -->
-                <button id="civ-btn" onclick="game.handleCivClick()" class="btn-secondary py-3 rounded-xl font-medium text-sm text-purple-200 border-purple-500/30 bg-purple-900/10 disabled:opacity-50">
+                <!-- Leaderboard Button (Moved to bottom) -->
+                <button onclick="game.toggleLeaderboard()" class="btn-secondary py-3 rounded-xl font-medium text-xs text-blue-200 border-blue-500/30 bg-blue-900/10 flex flex-col items-center justify-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+                    Rank
+                </button>
+
+                <!-- Civ Button -->
+                <button id="civ-btn" onclick="game.handleCivClick()" class="btn-secondary py-3 rounded-xl font-medium text-xs text-purple-200 border-purple-500/30 bg-purple-900/10 disabled:opacity-50 flex flex-col items-center justify-center text-center leading-tight">
                     Discover Life
                 </button>
             </div>
@@ -590,6 +602,9 @@
             e.preventDefault();
             camera.targetZoom += e.deltaY * -0.001;
             camera.targetZoom = Math.max(0.1, Math.min(camera.targetZoom, 5));
+            // Sync slider
+            const slider = document.getElementById('zoom-slider');
+            if(slider) slider.value = camera.targetZoom;
         }, { passive: false });
         canvas.addEventListener('touchstart', e => { camera.isDragging = true; camera.lastX = e.touches[0].clientX; }, { passive: false });
         canvas.addEventListener('touchmove', e => {
@@ -774,7 +789,8 @@
                         window.firebaseApp.onAuthStateChanged(auth, async (user) => {
                             if (user) {
                                 currentUser = user;
-                                await game.load(); // Load from cloud
+                                // Load will handle local -> cloud -> telegram
+                                await game.load(); 
                                 game.checkNaming();
                             }
                         });
@@ -795,6 +811,14 @@
                 game.updateUI();
                 game.updateShopUI();
                 
+                // Init Slider
+                const slider = document.getElementById('zoom-slider');
+                if(slider) {
+                    slider.addEventListener('input', (e) => {
+                        camera.targetZoom = parseFloat(e.target.value);
+                    });
+                }
+
                 // Extended Loading Screen
                 setTimeout(() => {
                     const loader = document.getElementById('loading-screen');
@@ -804,7 +828,17 @@
             },
 
             checkNaming: () => {
-                if (STATE.universeName === "Unknown") {
+                const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+                if (tgUser) {
+                    // Automatically name universe based on Telegram User
+                    let name = tgUser.first_name;
+                    if (tgUser.last_name) name += " " + tgUser.last_name;
+                    STATE.universeName = name + (name.endsWith('s') ? "'" : "'s") + " Universe";
+                    document.getElementById('universe-name-display').innerText = STATE.universeName;
+                    
+                    // Hide modal if it's visible
+                    document.getElementById('naming-modal').classList.add('hidden');
+                } else if (STATE.universeName === "Unknown") {
                     document.getElementById('naming-modal').classList.remove('hidden');
                 } else {
                     document.getElementById('universe-name-display').innerText = STATE.universeName;
@@ -922,8 +956,6 @@
                     listEl.innerHTML = '<div class="text-center text-gray-500 py-4">Fetching Data...</div>';
                     
                     try {
-                        // "Rule 2: No Complex Queries" - We fetch all and sort in JS
-                        // Use public collection path
                         const lbRef = window.firebaseApp.collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
                         const snapshot = await window.firebaseApp.getDocs(lbRef);
                         
@@ -932,10 +964,8 @@
                             players.push(doc.data());
                         });
                         
-                        // Sort by stars descending
                         players.sort((a, b) => b.stars - a.stars);
                         
-                        // Render Top 20
                         let html = '';
                         players.slice(0, 20).forEach((p, index) => {
                             const isMe = currentUser && p.userId === currentUser.uid;
@@ -1030,21 +1060,17 @@
             },
             
             updateShopUI: () => {
-                // Auto
                 const btnAuto = document.getElementById('btn-buy-auto');
                 if (STATE.hasAutoCollect) { btnAuto.disabled = true; btnAuto.innerText = "OWNED"; btnAuto.className="w-full py-2 rounded-lg bg-green-500/20 text-green-200 border border-green-500/30 text-xs font-bold uppercase"; }
                 
-                // Boost (Black Hole)
                 const btnBoost = document.getElementById('btn-buy-boost');
                 if (STATE.hasBlackHole) { btnBoost.disabled = true; btnBoost.innerText = "COLLAPSED"; btnBoost.className="w-full py-2 rounded-lg bg-purple-500/50 text-purple-200 border border-purple-500/50 text-xs font-bold uppercase"; }
 
-                // Land
                 const btnLand = document.getElementById('btn-buy-land');
                 if (STATE.landOwned) { btnLand.disabled = true; btnLand.innerText = "TERRAFORMED"; btnLand.className="w-full py-2 rounded-lg bg-green-500/20 text-green-200 border border-green-500/30 text-xs font-bold uppercase"; }
                 else if (STATE.stardust < CONFIG.landCost) btnLand.classList.add('opacity-50');
                 else btnLand.classList.remove('opacity-50');
 
-                // Core
                 const coreCost = Math.floor(CONFIG.baseCoreCost * Math.pow(CONFIG.coreCostMult, STATE.coreLevel));
                 document.getElementById('core-cost-display').innerText = formatNumber(coreCost) + " Dust";
                 const nextBonus = CONFIG.baseCoreBonus * Math.pow(2, STATE.coreLevel); 
@@ -1127,16 +1153,21 @@
             },
 
             save: async () => {
-                // Save to local storage for backup/speed
-                localStorage.setItem('tinyVerseV7', JSON.stringify(STATE));
+                const saveString = JSON.stringify(STATE);
                 
-                // Save to Firebase
+                // 1. Local Storage
+                localStorage.setItem('tinyVerseV8', saveString);
+                
+                // 2. Telegram Cloud Storage (Cross-device Sync for same account)
+                if (window.Telegram?.WebApp?.CloudStorage) {
+                    window.Telegram.WebApp.CloudStorage.setItem('tinyVerseSave', saveString, (err, success) => {
+                        if (err) console.error("TG Cloud Save Error:", err);
+                    });
+                }
+
+                // 3. Firebase (Public Leaderboard)
                 if (currentUser && db) {
                     try {
-                        const userRef = window.firebaseApp.doc(db, 'artifacts', appId, 'users', currentUser.uid, 'saveData');
-                        await window.firebaseApp.setDoc(userRef, STATE, { merge: true });
-                        
-                        // Update Leaderboard Entry (Public)
                         const lbRef = window.firebaseApp.doc(db, 'artifacts', appId, 'public', 'data', 'leaderboard', currentUser.uid);
                         await window.firebaseApp.setDoc(lbRef, {
                             name: STATE.universeName || "Anonymous",
@@ -1144,47 +1175,57 @@
                             stardust: STATE.stardust,
                             userId: currentUser.uid
                         }, { merge: true });
-                        
                     } catch (e) {
-                        console.error("Save failed", e);
+                        console.error("Firebase LB Save failed", e);
                     }
                 }
             },
 
             load: async () => {
-                // Try Local First
-                const localSave = localStorage.getItem('tinyVerseV7');
-                if (localSave) Object.assign(STATE, JSON.parse(localSave));
+                // Priority: Telegram Cloud -> Local Storage -> Default
+                
+                const applySave = (data) => {
+                    Object.assign(STATE, data);
+                    // Migrations
+                    if(typeof STATE.landOwned === 'undefined') STATE.landOwned = false;
+                    if(typeof STATE.coreLevel === 'undefined') STATE.coreLevel = 0;
+                    if(typeof STATE.hasBlackHole === 'undefined') STATE.hasBlackHole = false;
+                    if(typeof STATE.universeName === 'undefined') STATE.universeName = "Unknown";
+                    
+                    // Offline Calc
+                    const seconds = (Date.now() - STATE.lastSaveTime) / 1000;
+                    if (seconds > 10) {
+                        let prod = game.calculateProduction();
+                        const gain = prod * seconds;
+                        STATE.unclaimed += gain;
+                        game.showToast(`Offline: +${formatNumber(gain)}`);
+                    }
+                    STATE.lastSaveTime = Date.now();
+                    game.updateUI();
+                };
 
-                // Try Cloud Overlay
-                if (currentUser && db) {
-                    try {
-                        const userRef = window.firebaseApp.doc(db, 'artifacts', appId, 'users', currentUser.uid, 'saveData');
-                        const docSnap = await window.firebaseApp.getDoc(userRef);
-                        if (docSnap.exists()) {
-                            Object.assign(STATE, docSnap.data());
+                let loadedFromCloud = false;
+
+                // Try Telegram Cloud Storage
+                if (window.Telegram?.WebApp?.CloudStorage) {
+                    window.Telegram.WebApp.CloudStorage.getItem('tinyVerseSave', (err, value) => {
+                        if (!err && value) {
+                            try {
+                                console.log("Loaded from Cloud");
+                                applySave(JSON.parse(value));
+                                loadedFromCloud = true;
+                            } catch (e) { console.error("Cloud parse error", e); }
                         }
-                    } catch (e) {
-                        console.error("Cloud load failed", e);
+                    });
+                }
+
+                // If cloud fails or is slow, try local
+                if (!loadedFromCloud) {
+                    const localSave = localStorage.getItem('tinyVerseV8');
+                    if (localSave) {
+                        applySave(JSON.parse(localSave));
                     }
                 }
-
-                // Migrations
-                if(typeof STATE.landOwned === 'undefined') STATE.landOwned = false;
-                if(typeof STATE.coreLevel === 'undefined') STATE.coreLevel = 0;
-                if(typeof STATE.hasBlackHole === 'undefined') STATE.hasBlackHole = false;
-                if(typeof STATE.universeName === 'undefined') STATE.universeName = "Unknown";
-                
-                // Offline Calc
-                const seconds = (Date.now() - STATE.lastSaveTime) / 1000;
-                if (seconds > 10) {
-                    let prod = game.calculateProduction();
-                    const gain = prod * seconds;
-                    STATE.unclaimed += gain;
-                    game.showToast(`Offline: +${formatNumber(gain)}`);
-                }
-                STATE.lastSaveTime = Date.now();
-                game.updateUI();
             }
         };
 

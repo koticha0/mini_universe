@@ -307,7 +307,7 @@
                      Store
                 </button>
 
-                <!-- Leaderboard Button (Moved to bottom) -->
+                <!-- Leaderboard Button -->
                 <button onclick="game.toggleLeaderboard()" class="btn-secondary py-3 rounded-xl font-medium text-xs text-blue-200 border-blue-500/30 bg-blue-900/10 flex flex-col items-center justify-center gap-1">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
                     Rank
@@ -472,34 +472,42 @@
         }
 
         // --- Firebase Init ---
-        // Provided by environment
         const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'tiny-verse-default';
         
         let auth, db;
         let currentUser = null;
-
+        
+        // --- User Identification ---
+        // Get TG User ID or generate/fetch a local guest ID
+        let localUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+        if (!localUserId) {
+            // Fallback for non-Telegram usage (browser test)
+            localUserId = localStorage.getItem('tinyVerse_guestId');
+            if(!localUserId) {
+                localUserId = 'guest_' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('tinyVerse_guestId', localUserId);
+            }
+        }
+        
         // --- Game Configuration ---
         const CONFIG = {
             baseStarCost: 10,
             costMultiplier: 1.15, 
             maxStarCost: 150000, 
             baseProductionPerStar: 1, 
-            lifeMultiplier: 50, // x50 Multiplier
+            lifeMultiplier: 50, 
             civCost: 5000000, 
             landCost: 1000000, 
             
-            // Core Upgrades
             baseCoreCost: 20000,
             coreCostMult: 2.5,
             baseCoreBonus: 5000,
 
-            // Shop Costs
             costAuto: 10000,
-            costBoost: 500000, // Black Hole
+            costBoost: 500000, 
             costWarp: 50000,
             
-            // Cosmetic Costs
             costShape: 50000,
             costColor: 20000
         };
@@ -515,28 +523,14 @@
             coreLevel: 0,
             hasBlackHole: false,
             universeName: "Unknown",
-            
-            // Upgrades
             hasAutoCollect: false,
             permanentMultiplier: 1,
-            
-            // Visual Preferences
             galaxyShape: 'spiral', 
             coreColor: '#ffffff'
         };
 
-        // --- Camera & Interaction State ---
-        const camera = {
-            zoom: 1,
-            rotation: 0,
-            isDragging: false,
-            lastX: 0,
-            lastY: 0,
-            targetRotation: 0,
-            targetZoom: 1
-        };
+        const camera = { zoom: 1, rotation: 0, isDragging: false, lastX: 0, lastY: 0, targetRotation: 0, targetZoom: 1 };
 
-        // --- Helper: Number Formatter ---
         function formatNumber(num) {
             if (num < 10000) return Math.floor(num).toLocaleString();
             if (num < 1000000) return (num / 1000).toFixed(1) + 'k';
@@ -544,7 +538,6 @@
             return num.toExponential(2);
         }
 
-        // --- Audio ---
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         const audioCtx = new AudioContext();
 
@@ -575,7 +568,6 @@
             }
         }
 
-        // --- Visualizer ---
         const canvas = document.getElementById('galaxyCanvas');
         const ctx = canvas.getContext('2d');
         let width, height;
@@ -590,7 +582,6 @@
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        // Input Handling
         canvas.addEventListener('mousedown', e => { camera.isDragging = true; camera.lastX = e.clientX; });
         window.addEventListener('mousemove', e => {
             if (!camera.isDragging) return;
@@ -602,7 +593,6 @@
             e.preventDefault();
             camera.targetZoom += e.deltaY * -0.001;
             camera.targetZoom = Math.max(0.1, Math.min(camera.targetZoom, 5));
-            // Sync slider
             const slider = document.getElementById('zoom-slider');
             if(slider) slider.value = camera.targetZoom;
         }, { passive: false });
@@ -769,10 +759,8 @@
             requestAnimationFrame(renderLoop);
         }
 
-        // --- Game Logic ---
         const game = {
             init: async () => {
-                // Init Firebase
                 if (window.firebaseApp) {
                     try {
                         const app = window.firebaseApp.initializeApp(firebaseConfig);
@@ -789,7 +777,6 @@
                         window.firebaseApp.onAuthStateChanged(auth, async (user) => {
                             if (user) {
                                 currentUser = user;
-                                // Load will handle local -> cloud -> telegram
                                 await game.load(); 
                                 game.checkNaming();
                             }
@@ -807,11 +794,10 @@
                 initVisuals();
                 renderLoop();
                 setInterval(game.tick, 100);
-                setInterval(game.save, 30000); // Sync every 30s
+                setInterval(game.save, 30000); 
                 game.updateUI();
                 game.updateShopUI();
                 
-                // Init Slider
                 const slider = document.getElementById('zoom-slider');
                 if(slider) {
                     slider.addEventListener('input', (e) => {
@@ -819,24 +805,20 @@
                     });
                 }
 
-                // Extended Loading Screen
                 setTimeout(() => {
                     const loader = document.getElementById('loading-screen');
                     loader.style.opacity = '0';
                     setTimeout(() => loader.remove(), 800);
-                }, 4000); // 4 seconds load time
+                }, 4000); 
             },
 
             checkNaming: () => {
                 const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
                 if (tgUser) {
-                    // Automatically name universe based on Telegram User
                     let name = tgUser.first_name;
                     if (tgUser.last_name) name += " " + tgUser.last_name;
                     STATE.universeName = name + (name.endsWith('s') ? "'" : "'s") + " Universe";
                     document.getElementById('universe-name-display').innerText = STATE.universeName;
-                    
-                    // Hide modal if it's visible
                     document.getElementById('naming-modal').classList.add('hidden');
                 } else if (STATE.universeName === "Unknown") {
                     document.getElementById('naming-modal').classList.remove('hidden');
@@ -968,13 +950,13 @@
                         
                         let html = '';
                         players.slice(0, 20).forEach((p, index) => {
-                            const isMe = currentUser && p.userId === currentUser.uid;
+                            const isMe = (currentUser && p.userId === currentUser.uid) || (p.name === STATE.universeName);
                             html += `
-                                <div class="flex justify-between items-center p-3 rounded-lg ${isMe ? 'bg-indigo-900/40 border border-indigo-500/30' : 'bg-white/5 border border-white/5'}">
+                                <div class="flex justify-between items-center p-3 rounded-lg ${isMe ? 'bg-cyan-900/40 border border-cyan-500/50 shadow-lg shadow-cyan-500/20' : 'bg-white/5 border border-white/5'}">
                                     <div class="flex items-center gap-3">
                                         <span class="text-gray-500 font-mono w-6 text-sm">#${index + 1}</span>
                                         <div>
-                                            <div class="text-sm font-bold text-white">${p.name || 'Anonymous'}</div>
+                                            <div class="text-sm font-bold ${isMe ? 'text-cyan-300' : 'text-white'}">${p.name || 'Anonymous'}</div>
                                             <div class="text-xs text-gray-400">${formatNumber(p.stars)} Stars</div>
                                         </div>
                                     </div>
@@ -1155,10 +1137,11 @@
             save: async () => {
                 const saveString = JSON.stringify(STATE);
                 
-                // 1. Local Storage
-                localStorage.setItem('tinyVerseV8', saveString);
+                // 1. Local Storage (ISOLATED PER USER ID)
+                const storageKey = `tinyVerse_save_${localUserId}`;
+                localStorage.setItem(storageKey, saveString);
                 
-                // 2. Telegram Cloud Storage (Cross-device Sync for same account)
+                // 2. Telegram Cloud Storage
                 if (window.Telegram?.WebApp?.CloudStorage) {
                     window.Telegram.WebApp.CloudStorage.setItem('tinyVerseSave', saveString, (err, success) => {
                         if (err) console.error("TG Cloud Save Error:", err);
@@ -1182,8 +1165,6 @@
             },
 
             load: async () => {
-                // Priority: Telegram Cloud -> Local Storage -> Default
-                
                 const applySave = (data) => {
                     Object.assign(STATE, data);
                     // Migrations
@@ -1192,7 +1173,6 @@
                     if(typeof STATE.hasBlackHole === 'undefined') STATE.hasBlackHole = false;
                     if(typeof STATE.universeName === 'undefined') STATE.universeName = "Unknown";
                     
-                    // Offline Calc
                     const seconds = (Date.now() - STATE.lastSaveTime) / 1000;
                     if (seconds > 10) {
                         let prod = game.calculateProduction();
@@ -1206,7 +1186,7 @@
 
                 let loadedFromCloud = false;
 
-                // Try Telegram Cloud Storage
+                // Try Telegram Cloud Storage first (Sync)
                 if (window.Telegram?.WebApp?.CloudStorage) {
                     window.Telegram.WebApp.CloudStorage.getItem('tinyVerseSave', (err, value) => {
                         if (!err && value) {
@@ -1219,11 +1199,22 @@
                     });
                 }
 
-                // If cloud fails or is slow, try local
+                // Fallback to Isolated Local Storage
                 if (!loadedFromCloud) {
-                    const localSave = localStorage.getItem('tinyVerseV8');
+                    const storageKey = `tinyVerse_save_${localUserId}`;
+                    const localSave = localStorage.getItem(storageKey);
+                    
                     if (localSave) {
                         applySave(JSON.parse(localSave));
+                    } else {
+                        // Migration Attempt: Check for old global save
+                        const oldGlobalSave = localStorage.getItem('tinyVerseV8');
+                        if (oldGlobalSave) {
+                            console.log("Migrating old save to user-specific storage...");
+                            const oldData = JSON.parse(oldGlobalSave);
+                            applySave(oldData);
+                            // Do not delete old save immediately to be safe, but new saves will go to new key
+                        }
                     }
                 }
             }

@@ -3,11 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tiny Verse Analogue</title>
+    <title>Mini Universe</title>
     <!-- Telegram Web App Script -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- Google AdSense -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5341889314081927" crossorigin="anonymous"></script>
+
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -179,6 +182,61 @@
             border-radius: 50%;
             animation: spin 1.5s linear infinite;
         }
+        
+        /* CSS Logo Construction */
+        .logo-container {
+            position: relative;
+            width: 200px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .logo-text {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: transparent;
+            background: linear-gradient(90deg, #fff, #a5b4fc, #fff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            background-size: 200% auto;
+            animation: shine 3s linear infinite;
+            z-index: 2;
+        }
+        .logo-planet {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4ade80, #3b82f6);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+            z-index: 1;
+            opacity: 0.8;
+            animation: float-logo 4s ease-in-out infinite;
+        }
+        .logo-orbit {
+            position: absolute;
+            width: 160px;
+            height: 40px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 50%;
+            transform: rotate(-15deg);
+        }
+
+        @keyframes shine {
+            to { background-position: 200% center; }
+        }
+        @keyframes float-logo {
+            0%, 100% { transform: translateY(-50%) translateX(0); }
+            50% { transform: translateY(-60%) translateX(5px); }
+        }
+
         @keyframes pulse-loader {
             0% { transform: scale(0.8); opacity: 0.6; box-shadow: 0 0 20px white; }
             50% { transform: scale(1.5); opacity: 1; box-shadow: 0 0 60px rgba(165, 180, 252, 0.8); }
@@ -223,12 +281,17 @@
 
     <!-- Loading Screen -->
     <div id="loading-screen">
+        <div class="logo-container">
+            <div class="logo-orbit"></div>
+            <div class="logo-planet"></div>
+            <div class="logo-text">MINI UNIVERSE</div>
+        </div>
         <div class="relative flex items-center justify-center mb-8">
             <div class="loader-ring"></div>
             <div class="loader-star"></div>
         </div>
-        <div class="text-indigo-200 font-space tracking-[0.3em] text-xs font-bold animate-pulse mb-2">INITIALIZING UNIVERSE</div>
-        <div class="text-gray-600 font-mono text-[10px] absolute bottom-8">Version 1.0</div>
+        <div class="text-indigo-200 font-space tracking-[0.3em] text-xs font-bold animate-pulse mb-2">INITIALIZING</div>
+        <div class="text-gray-600 font-mono text-[10px] absolute bottom-8">Version 1.1</div>
     </div>
 
     <!-- Desktop Warning Screen -->
@@ -271,7 +334,10 @@
             <div class="h-px w-full bg-white/10 my-1"></div>
             <div class="flex justify-between items-center text-xs text-gray-500">
                 <span>Production: <span id="production-rate" class="text-gray-300">0.0</span> / sec</span>
-                <span id="civ-status" class="text-gray-600 italic">No Life Detected</span>
+                <div class="flex gap-2">
+                    <span id="dark-matter-display" class="text-purple-400 hidden">0 DM</span>
+                    <span id="civ-status" class="text-gray-600 italic">No Life Detected</span>
+                </div>
             </div>
         </div>
 
@@ -322,7 +388,7 @@
                 <div class="absolute top-0 -left-full w-full h-full bg-white/30 skew-x-12 group-hover:animate-shine"></div>
             </button>
 
-            <!-- Row 2: Controls (Reorganized since Ad button is gone) -->
+            <!-- Row 2: Controls -->
             <div class="grid grid-cols-2 gap-2">
                 <!-- Store Button -->
                 <button onclick="game.toggleShop()" class="btn-secondary py-3 rounded-xl font-medium text-xs text-yellow-200 border-yellow-500/30 bg-yellow-900/10 flex flex-col items-center justify-center gap-1">
@@ -336,9 +402,14 @@
                     Rank
                 </button>
 
-                <!-- Civ Button (Spans 2 cols to fill gap) -->
-                <button id="civ-btn" onclick="game.handleCivClick()" class="col-span-2 btn-secondary py-3 rounded-xl font-medium text-xs text-purple-200 border-purple-500/30 bg-purple-900/10 disabled:opacity-50 flex flex-col items-center justify-center text-center leading-tight">
+                <!-- Civ Button -->
+                <button id="civ-btn" onclick="game.handleCivClick()" class="btn-secondary py-3 rounded-xl font-medium text-xs text-purple-200 border-purple-500/30 bg-purple-900/10 disabled:opacity-50 flex flex-col items-center justify-center text-center leading-tight">
                     Discover Life
+                </button>
+
+                <!-- Warp Button (New) -->
+                <button id="warp-btn" onclick="game.tryWarp()" class="btn-secondary py-3 rounded-xl font-medium text-xs text-pink-200 border-pink-500/30 bg-pink-900/10 disabled:opacity-30 flex flex-col items-center justify-center text-center leading-tight">
+                    Warp (100 Stars)
                 </button>
             </div>
         </div>
@@ -405,7 +476,7 @@
                         </button>
                     </div>
 
-                    <!-- Core Upgrade (Replaces Slider) -->
+                    <!-- Core Upgrade -->
                     <div class="p-4 rounded-xl bg-white/5 border border-white/10">
                         <div class="flex justify-between items-start mb-2">
                             <h3 class="font-bold text-white">Expand Core</h3>
@@ -434,14 +505,15 @@
                         </button>
                     </div>
 
-                    <!-- Auto Collect -->
+                    <!-- Stellar Amplifier (Replaces Auto-Collect) -->
                     <div class="p-4 rounded-xl bg-white/5 border border-white/10">
                         <div class="flex justify-between items-start mb-2">
-                            <h3 class="font-bold text-white">Auto-Harvester</h3>
-                            <span class="text-xs font-mono text-yellow-300 bg-yellow-900/30 px-2 py-1 rounded">10k Dust</span>
+                            <h3 class="font-bold text-white">Stellar Amplifier</h3>
+                            <span class="text-xs font-mono text-yellow-300 bg-yellow-900/30 px-2 py-1 rounded">15k Dust</span>
                         </div>
-                        <button id="btn-buy-auto" onclick="game.buyUpgrade('auto')" class="w-full py-2 rounded-lg bg-yellow-500/20 text-yellow-200 border border-yellow-500/30 hover:bg-yellow-500/30 text-xs font-bold uppercase transition-colors">
-                            Purchase
+                        <p class="text-xs text-gray-400 mb-3">Boosts total production by 25%. Stackable.</p>
+                        <button id="btn-buy-amp" onclick="game.buyUpgrade('amp')" class="w-full py-2 rounded-lg bg-yellow-500/20 text-yellow-200 border border-yellow-500/30 hover:bg-yellow-500/30 text-xs font-bold uppercase transition-colors">
+                            Purchase (x1.25)
                         </button>
                     </div>
                 </div>
@@ -525,12 +597,14 @@
             coreCostMult: 2.5,
             baseCoreBonus: 5000,
 
-            costAuto: 10000,
+            costAmplifier: 15000,
             costBoost: 500000, 
             costWarp: 50000,
             
             costShape: 50000,
-            costColor: 20000
+            costColor: 20000,
+            
+            warpThreshold: 100 // Stars needed to warp
         };
 
         const STATE = {
@@ -544,10 +618,13 @@
             coreLevel: 0,
             hasBlackHole: false,
             universeName: "Unknown",
-            hasAutoCollect: false,
+            hasAmplifier: false, // Changed from auto-collect
+            amplifierCount: 0,
             permanentMultiplier: 1,
             galaxyShape: 'spiral', 
-            coreColor: '#ffffff'
+            coreColor: '#ffffff',
+            darkMatter: 0,
+            nebulaColor: 'rgba(30, 27, 75, 0.4)' // Default Indigo
         };
 
         const camera = { zoom: 1, rotation: 0, isDragging: false, lastX: 0, lastY: 0, targetRotation: 0, targetZoom: 1 };
@@ -586,6 +663,15 @@
                 gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
                 osc.start(now);
                 osc.stop(now + 0.6);
+            } else if (type === 'warp') {
+                // Deep warp sound
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(100, now);
+                osc.frequency.exponentialRampToValueAtTime(10, now + 1.5);
+                gainNode.gain.setValueAtTime(0.5, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 1.5);
+                osc.start(now);
+                osc.stop(now + 1.5);
             }
         }
 
@@ -765,7 +851,8 @@
             
             const cx = width/2, cy = height/2;
             const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(width, height));
-            gradient.addColorStop(0, 'rgba(30, 27, 75, 0.4)');
+            // Dynamic Nebula Color based on Theme
+            gradient.addColorStop(0, STATE.nebulaColor || 'rgba(30, 27, 75, 0.4)');
             gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.0)');
             ctx.fillStyle = gradient;
             ctx.fillRect(0,0,width,height);
@@ -782,10 +869,8 @@
 
         const game = {
             init: async () => {
-                // Device Check: Block Desktop/Web unless mimicking mobile
-                if (!game.checkDevice()) {
-                    return; 
-                }
+                // Device Check
+                if (!game.checkDevice()) return;
 
                 if (window.firebaseApp) {
                     try {
@@ -840,12 +925,8 @@
             },
 
             checkDevice: () => {
-                // Logic to enforce mobile view
-                // 1. If running inside Telegram, check platform
                 if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.platform) {
                     const platform = window.Telegram.WebApp.platform;
-                    // 'tdesktop', 'web', 'weba', 'macos' are considered desktop
-                    // 'android', 'ios' are mobile
                     const desktopPlatforms = ['tdesktop', 'web', 'weba', 'macos', 'unigram', 'unknown'];
                     if (desktopPlatforms.includes(platform)) {
                         game.showDesktopWarning();
@@ -853,18 +934,11 @@
                     }
                     return true;
                 }
-
-                // 2. Fallback: User Agent check for standard mobile/tablet keywords
                 const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-                
-                // 3. Fallback: Screen width check (tablets often have desktop-like width but touch)
-                // Let's assume if it's touch capable and UA says mobile, or screen is small.
-                // Simple strict check:
                 if (!isMobileUA) {
                     game.showDesktopWarning();
                     return false;
                 }
-                
                 return true;
             },
 
@@ -908,24 +982,36 @@
                 const generated = production * dt;
                 STATE.unclaimed += generated;
 
-                if (STATE.hasAutoCollect) {
-                    STATE.stardust += STATE.unclaimed;
-                    STATE.unclaimed = 0;
-                }
-
                 game.updateLiveUI();
             },
 
             calculateProduction: () => {
                 let production = STATE.stars * CONFIG.baseProductionPerStar;
+                
+                // Core
                 if (STATE.coreLevel > 0) {
                     const coreBonus = CONFIG.baseCoreBonus * Math.pow(2, STATE.coreLevel - 1);
                     production += coreBonus;
                 }
+                
+                // Life
                 if (STATE.lifeFound) {
                     production *= CONFIG.lifeMultiplier;
                 }
+                
+                // Permanent (Black Hole etc)
                 production *= (STATE.permanentMultiplier || 1);
+                
+                // Amplifier (+25% per amp)
+                if (STATE.amplifierCount > 0) {
+                    production *= (1 + (STATE.amplifierCount * 0.25));
+                }
+                
+                // Dark Matter (+10% per DM)
+                if (STATE.darkMatter > 0) {
+                    production *= (1 + (STATE.darkMatter * 0.1));
+                }
+
                 return production;
             },
 
@@ -971,6 +1057,46 @@
                     game.showToast("LIFE DISCOVERED! (x50)");
                     game.updateUI();
                 }
+            },
+
+            tryWarp: () => {
+                if (STATE.stars < CONFIG.warpThreshold) {
+                    game.showToast(`Need ${CONFIG.warpThreshold} Stars to Warp`);
+                    return;
+                }
+                
+                if (confirm("WARP TO NEW WORLD?\n\nReset Galaxy (Stars, Dust, Life)\nGain Dark Matter (+10% Prod/each)\nGenerate New Universe Theme")) {
+                    game.warp();
+                }
+            },
+
+            warp: () => {
+                // Calculate Reward: 1 DM for every 100 stars? Let's say 1 DM per Warp + bonus
+                const dmReward = 1 + Math.floor((STATE.stars - 100) / 50);
+                
+                // Reset Game State but keep Account Stats
+                STATE.darkMatter += dmReward;
+                STATE.stars = 1;
+                STATE.stardust = 0;
+                STATE.unclaimed = 0;
+                STATE.lifeFound = false;
+                STATE.landOwned = false;
+                STATE.coreLevel = 0;
+                STATE.hasBlackHole = false;
+                STATE.amplifierCount = 0; // Reset temporary upgrades
+                
+                // Generate New Theme
+                const colors = ['#4c1d95', '#be185d', '#0f766e', '#1e3a8a', '#7f1d1d'];
+                const randomColor = colors[Math.floor(Math.random() * colors.length)];
+                STATE.nebulaColor = `rgba(${parseInt(randomColor.slice(1,3),16)}, ${parseInt(randomColor.slice(3,5),16)}, ${parseInt(randomColor.slice(5,7),16)}, 0.4)`;
+                
+                game.showToast(`WARP SUCCESS! +${dmReward} Dark Matter`);
+                playSound('warp');
+                
+                initVisuals(); // Rebuild stars
+                game.save();
+                game.updateUI();
+                game.updateShopUI();
             },
 
             handleCivClick: () => {
@@ -1040,13 +1166,13 @@
                 let cost = 0;
                 let success = false;
 
-                if (type === 'auto') {
-                    cost = CONFIG.costAuto;
-                    if (STATE.stardust >= cost && !STATE.hasAutoCollect) {
+                if (type === 'amp') {
+                    cost = CONFIG.costAmplifier;
+                    if (STATE.stardust >= cost) {
                         STATE.stardust -= cost;
-                        STATE.hasAutoCollect = true;
+                        STATE.amplifierCount++;
                         success = true;
-                        game.showToast("Auto-Harvester Online");
+                        game.showToast("Amplifier Active (x1.25)");
                     }
                 } else if (type === 'boost') {
                     cost = CONFIG.costBoost;
@@ -1103,17 +1229,22 @@
             },
             
             updateShopUI: () => {
-                const btnAuto = document.getElementById('btn-buy-auto');
-                if (STATE.hasAutoCollect) { btnAuto.disabled = true; btnAuto.innerText = "OWNED"; btnAuto.className="w-full py-2 rounded-lg bg-green-500/20 text-green-200 border border-green-500/30 text-xs font-bold uppercase"; }
+                // Amp
+                const btnAmp = document.getElementById('btn-buy-amp');
+                if (STATE.stardust < CONFIG.costAmplifier) btnAmp.classList.add('opacity-50');
+                else btnAmp.classList.remove('opacity-50');
                 
+                // Boost (Black Hole)
                 const btnBoost = document.getElementById('btn-buy-boost');
                 if (STATE.hasBlackHole) { btnBoost.disabled = true; btnBoost.innerText = "COLLAPSED"; btnBoost.className="w-full py-2 rounded-lg bg-purple-500/50 text-purple-200 border border-purple-500/50 text-xs font-bold uppercase"; }
 
+                // Land
                 const btnLand = document.getElementById('btn-buy-land');
                 if (STATE.landOwned) { btnLand.disabled = true; btnLand.innerText = "TERRAFORMED"; btnLand.className="w-full py-2 rounded-lg bg-green-500/20 text-green-200 border border-green-500/30 text-xs font-bold uppercase"; }
                 else if (STATE.stardust < CONFIG.landCost) btnLand.classList.add('opacity-50');
                 else btnLand.classList.remove('opacity-50');
 
+                // Core
                 const coreCost = Math.floor(CONFIG.baseCoreCost * Math.pow(CONFIG.coreCostMult, STATE.coreLevel));
                 document.getElementById('core-cost-display').innerText = formatNumber(coreCost) + " Dust";
                 const nextBonus = CONFIG.baseCoreBonus * Math.pow(2, STATE.coreLevel); 
@@ -1172,7 +1303,6 @@
                 document.getElementById('production-rate').innerText = formatNumber(game.calculateProduction());
 
                 const civBtn = document.getElementById('civ-btn');
-                
                 if (STATE.lifeFound) {
                     civBtn.innerText = "View World";
                     civBtn.classList.remove('text-purple-200', 'border-purple-500/30', 'bg-purple-900/10');
@@ -1192,6 +1322,27 @@
                         civBtn.disabled = false;
                         civBtn.classList.remove('opacity-50');
                     }
+                }
+
+                // Warp Button Update
+                const warpBtn = document.getElementById('warp-btn');
+                if(warpBtn) {
+                    if(STATE.stars >= CONFIG.warpThreshold) {
+                        warpBtn.classList.remove('opacity-30', 'bg-pink-900/10');
+                        warpBtn.classList.add('bg-pink-500/20', 'animate-pulse');
+                        warpBtn.disabled = false;
+                    } else {
+                        warpBtn.classList.add('opacity-30', 'bg-pink-900/10');
+                        warpBtn.classList.remove('bg-pink-500/20', 'animate-pulse');
+                        warpBtn.disabled = true;
+                    }
+                }
+
+                // Dark Matter Display
+                const dmDisplay = document.getElementById('dark-matter-display');
+                if (STATE.darkMatter > 0) {
+                    dmDisplay.classList.remove('hidden');
+                    dmDisplay.innerText = `${formatNumber(STATE.darkMatter)} DM`;
                 }
             },
 
@@ -1224,10 +1375,10 @@
             load: async () => {
                 const applySave = (data) => {
                     Object.assign(STATE, data);
-                    if(typeof STATE.landOwned === 'undefined') STATE.landOwned = false;
-                    if(typeof STATE.coreLevel === 'undefined') STATE.coreLevel = 0;
-                    if(typeof STATE.hasBlackHole === 'undefined') STATE.hasBlackHole = false;
-                    if(typeof STATE.universeName === 'undefined') STATE.universeName = "Unknown";
+                    // Migrations
+                    if(typeof STATE.amplifierCount === 'undefined') STATE.amplifierCount = 0;
+                    if(typeof STATE.darkMatter === 'undefined') STATE.darkMatter = 0;
+                    if(typeof STATE.nebulaColor === 'undefined') STATE.nebulaColor = 'rgba(30, 27, 75, 0.4)';
                     
                     const seconds = (Date.now() - STATE.lastSaveTime) / 1000;
                     if (seconds > 10) {

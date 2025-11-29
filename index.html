@@ -8,6 +8,10 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- Yandex.RTB -->
+    <script>window.yaContextCb=window.yaContextCb||[]</script>
+    <script src="https://yandex.ru/ads/system/context.js" async></script>
+
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -291,7 +295,7 @@
             <div class="h-px w-full bg-white/5"></div>
 
             <!-- Action Buttons Grid -->
-            <!-- 3 Columns for Store, Leaderboard, Civ -->
+            <!-- Row 1: Create Star -->
             <button id="create-star-btn" onclick="game.buyStar()" class="btn-primary w-full py-3 rounded-xl font-bold text-md shadow-lg relative overflow-hidden group">
                 <div class="relative z-10 flex justify-between items-center px-4">
                     <span>Create Star</span>
@@ -300,7 +304,8 @@
                 <div class="absolute top-0 -left-full w-full h-full bg-white/30 skew-x-12 group-hover:animate-shine"></div>
             </button>
 
-            <div class="grid grid-cols-3 gap-2">
+            <!-- Row 2 & 3: 2x2 Grid for Controls -->
+            <div class="grid grid-cols-2 gap-2">
                 <!-- Store Button -->
                 <button onclick="game.toggleShop()" class="btn-secondary py-3 rounded-xl font-medium text-xs text-yellow-200 border-yellow-500/30 bg-yellow-900/10 flex flex-col items-center justify-center gap-1">
                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
@@ -316,6 +321,12 @@
                 <!-- Civ Button -->
                 <button id="civ-btn" onclick="game.handleCivClick()" class="btn-secondary py-3 rounded-xl font-medium text-xs text-purple-200 border-purple-500/30 bg-purple-900/10 disabled:opacity-50 flex flex-col items-center justify-center text-center leading-tight">
                     Discover Life
+                </button>
+
+                <!-- Rewarded Ad Button -->
+                <button onclick="adSystem.watchAd()" class="btn-secondary py-3 rounded-xl font-medium text-xs text-green-200 border-green-500/30 bg-green-900/10 flex flex-col items-center justify-center gap-1 hover:bg-green-500/20">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                    Watch Ad (+2.5k)
                 </button>
             </div>
         </div>
@@ -479,10 +490,8 @@
         let currentUser = null;
         
         // --- User Identification ---
-        // Get TG User ID or generate/fetch a local guest ID
         let localUserId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
         if (!localUserId) {
-            // Fallback for non-Telegram usage (browser test)
             localUserId = localStorage.getItem('tinyVerse_guestId');
             if(!localUserId) {
                 localUserId = 'guest_' + Math.random().toString(36).substr(2, 9);
@@ -490,6 +499,45 @@
             }
         }
         
+        // --- Ad System ---
+        const adSystem = {
+            init: () => {
+                // Interval for Automatic 5min Ads
+                setInterval(() => {
+                    adSystem.triggerNativeAd(5000); // 5000 reward for auto
+                }, 300000); // 5 minutes
+            },
+            
+            triggerNativeAd: (reward) => {
+                // Execute Yandex Render
+                if (window.yaContextCb) {
+                    window.yaContextCb.push(() => {
+                        try {
+                            Ya.Context.AdvManager.render({
+                                "blockId": "R-A-17902487-1",
+                                "type": "topAd"
+                            });
+                            // Simulate reward delivery
+                            setTimeout(() => {
+                                STATE.stardust += reward;
+                                game.showToast(`Ad Bonus: +${formatNumber(reward)} Dust`);
+                                playSound('collect');
+                                game.updateUI();
+                                game.save();
+                            }, 1000); // Small delay to simulate load
+                        } catch (e) {
+                            console.error("Ad Render Failed", e);
+                        }
+                    });
+                }
+            },
+            
+            watchAd: () => {
+                // User-triggered ad for 2500
+                adSystem.triggerNativeAd(2500);
+            }
+        };
+
         // --- Game Configuration ---
         const CONFIG = {
             baseStarCost: 10,
@@ -795,6 +843,9 @@
                 renderLoop();
                 setInterval(game.tick, 100);
                 setInterval(game.save, 30000); 
+                
+                adSystem.init(); // Initialize Ad Timer
+
                 game.updateUI();
                 game.updateShopUI();
                 
@@ -1136,19 +1187,15 @@
 
             save: async () => {
                 const saveString = JSON.stringify(STATE);
-                
-                // 1. Local Storage (ISOLATED PER USER ID)
                 const storageKey = `tinyVerse_save_${localUserId}`;
                 localStorage.setItem(storageKey, saveString);
                 
-                // 2. Telegram Cloud Storage
                 if (window.Telegram?.WebApp?.CloudStorage) {
                     window.Telegram.WebApp.CloudStorage.setItem('tinyVerseSave', saveString, (err, success) => {
                         if (err) console.error("TG Cloud Save Error:", err);
                     });
                 }
 
-                // 3. Firebase (Public Leaderboard)
                 if (currentUser && db) {
                     try {
                         const lbRef = window.firebaseApp.doc(db, 'artifacts', appId, 'public', 'data', 'leaderboard', currentUser.uid);
@@ -1167,7 +1214,6 @@
             load: async () => {
                 const applySave = (data) => {
                     Object.assign(STATE, data);
-                    // Migrations
                     if(typeof STATE.landOwned === 'undefined') STATE.landOwned = false;
                     if(typeof STATE.coreLevel === 'undefined') STATE.coreLevel = 0;
                     if(typeof STATE.hasBlackHole === 'undefined') STATE.hasBlackHole = false;
@@ -1186,7 +1232,6 @@
 
                 let loadedFromCloud = false;
 
-                // Try Telegram Cloud Storage first (Sync)
                 if (window.Telegram?.WebApp?.CloudStorage) {
                     window.Telegram.WebApp.CloudStorage.getItem('tinyVerseSave', (err, value) => {
                         if (!err && value) {
@@ -1199,7 +1244,6 @@
                     });
                 }
 
-                // Fallback to Isolated Local Storage
                 if (!loadedFromCloud) {
                     const storageKey = `tinyVerse_save_${localUserId}`;
                     const localSave = localStorage.getItem(storageKey);
@@ -1207,13 +1251,11 @@
                     if (localSave) {
                         applySave(JSON.parse(localSave));
                     } else {
-                        // Migration Attempt: Check for old global save
                         const oldGlobalSave = localStorage.getItem('tinyVerseV8');
                         if (oldGlobalSave) {
                             console.log("Migrating old save to user-specific storage...");
                             const oldData = JSON.parse(oldGlobalSave);
                             applySave(oldData);
-                            // Do not delete old save immediately to be safe, but new saves will go to new key
                         }
                     }
                 }
